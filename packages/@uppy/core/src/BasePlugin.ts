@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-empty-function */
+
 /**
  * Core plugin logic that all plugins share.
  *
@@ -8,19 +10,34 @@
  */
 
 import Translator from '@uppy/utils/lib/Translator'
+import type { Locale } from '@uppy/utils/lib/Translator'
+import type { Uppy } from '.'
 
-export default class BasePlugin {
-  constructor (uppy, opts = {}) {
+export default class BasePlugin<Opts extends Record<string, unknown>> {
+  uppy: Uppy
+
+  opts: Opts
+
+  id: string
+
+  defaultLocale: Locale
+
+  i18n: Translator['translate']
+
+  i18nArray: Translator['translateArray']
+
+  constructor(uppy: Uppy, opts: Opts) {
     this.uppy = uppy
-    this.opts = opts
+    this.opts = opts ?? {}
   }
 
-  getPluginState () {
+  getPluginState<T extends Record<string, unknown>>(): T {
     const { plugins } = this.uppy.getState()
     return plugins[this.id] || {}
   }
 
-  setPluginState (update) {
+  setPluginState(update: unknown): void {
+    if (!update) return
     const { plugins } = this.uppy.getState()
 
     this.uppy.setState({
@@ -34,9 +51,9 @@ export default class BasePlugin {
     })
   }
 
-  setOptions (newOpts) {
+  setOptions(newOpts: Partial<Opts>): void {
     this.opts = { ...this.opts, ...newOpts }
-    this.setPluginState() // so that UI re-renders with new options
+    this.setPluginState(undefined) // so that UI re-renders with new options
     this.i18nInit()
   }
 
@@ -45,7 +62,7 @@ export default class BasePlugin {
     const translator = new Translator([this.defaultLocale, this.uppy.locale, this.opts.locale], { onMissingKey })
     this.i18n = translator.translate.bind(translator)
     this.i18nArray = translator.translateArray.bind(translator)
-    this.setPluginState() // so that UI re-renders and we see the updated locale
+    this.setPluginState(undefined) // so that UI re-renders and we see the updated locale
   }
 
   /**
@@ -56,15 +73,17 @@ export default class BasePlugin {
    */
 
   // eslint-disable-next-line class-methods-use-this
-  addTarget () {
-    throw new Error('Extend the addTarget method to add your plugin to another plugin\'s target')
+  addTarget(): void {
+    throw new Error(
+      "Extend the addTarget method to add your plugin to another plugin's target",
+    )
   }
 
   // eslint-disable-next-line class-methods-use-this
-  install () {}
+  install(): void {}
 
   // eslint-disable-next-line class-methods-use-this
-  uninstall () {}
+  uninstall(): void {}
 
   /**
    * Called when plugin is mounted, whether in DOM or into another plugin.
@@ -72,14 +91,16 @@ export default class BasePlugin {
    * so this.el and this.parent might not be available in `install`.
    * This is the case with @uppy/react plugins, for example.
    */
-  render () {
-    throw new Error('Extend the render method to add your plugin to a DOM element')
+  render(): void {
+    throw new Error(
+      'Extend the render method to add your plugin to a DOM element',
+    )
   }
 
   // eslint-disable-next-line class-methods-use-this
-  update () {}
+  update(): void {}
 
   // Called after every state update, after everything's mounted. Debounced.
   // eslint-disable-next-line class-methods-use-this
-  afterUpdate () {}
+  afterUpdate(): void {}
 }
