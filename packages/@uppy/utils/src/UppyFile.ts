@@ -18,6 +18,7 @@ export interface UppyFile<
   isPaused?: boolean
   isRestored?: boolean
   isRemote: boolean
+  isGhost: boolean
   meta: InternalMetadata & TMeta
   name: string
   preview?: string

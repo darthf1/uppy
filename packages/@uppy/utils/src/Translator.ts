@@ -4,6 +4,9 @@ export interface Locale<T extends number = number> {
   pluralize: (n: number) => T
 }
 
+// eslint-disable-next-line no-use-before-define
+export type I18n = Translator['translate']
+
 type Options = {
   smart_count?: number
 } & {
