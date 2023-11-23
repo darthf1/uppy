@@ -10,7 +10,7 @@
  */
 
 import Translator from '@uppy/utils/lib/Translator'
-import type { I18n } from '@uppy/utils/src/Translator'
+import type { I18n, Locale } from '@uppy/utils/lib/Translator'
 import type { Uppy } from '.'
 
 export default class BasePlugin<Opts extends Record<string, unknown>> {
@@ -20,7 +20,7 @@ export default class BasePlugin<Opts extends Record<string, unknown>> {
 
   id: string
 
-  defaultLocale: Translator.Locale
+  defaultLocale: Locale
 
   i18n: I18n
 

@@ -1,9 +1,9 @@
-import UIPlugin from '../UIPlugin.js'
+import UIPlugin from '../UIPlugin.ts'
 
-export default class InvalidPluginWithoutType extends UIPlugin {
+export default class InvalidPluginWithoutName extends UIPlugin {
   constructor (uppy, opts) {
     super(uppy, opts)
-    this.id = 'InvalidPluginWithoutType'
+    this.type = 'acquirer'
     this.name = this.constructor.name
   }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import supportsUploadProgress from './supportsUploadProgress.js'
+import supportsUploadProgress from './supportsUploadProgress.ts'
 
 describe('supportsUploadProgress', () => {
   it('returns true in working browsers', () => {

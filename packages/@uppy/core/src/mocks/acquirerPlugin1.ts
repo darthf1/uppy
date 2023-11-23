@@ -1,5 +1,5 @@
 import { vi } from 'vitest' // eslint-disable-line import/no-extraneous-dependencies
-import UIPlugin from '../UIPlugin.js'
+import UIPlugin from '../UIPlugin.ts'
 
 export default class TestSelector1 extends UIPlugin {
   constructor (uppy, opts) {

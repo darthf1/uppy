@@ -6,9 +6,9 @@ import match from 'mime-match'
 import Translator from '@uppy/utils/lib/Translator'
 import type { UppyFile } from '@uppy/utils/lib/UppyFile'
 import type { I18n } from '@uppy/utils/lib/Translator'
-import type { Opts } from './Uppy.ts'
+import type { UppyOptions } from '../types'
 
-export type DefaultRestrictions = {
+export type Restrictions = {
   maxFileSize: number | null
   minFileSize: number | null
   maxTotalFileSize: number | null
@@ -50,15 +50,15 @@ class RestrictionError extends Error {
 class Restricter {
   i18n: Translator['translate']
 
-  getOpts: () => Opts
+  getOpts: () => UppyOptions
 
-  constructor(getOpts: () => Opts, i18n: I18n) {
+  constructor(getOpts: () => UppyOptions, i18n: I18n) {
     this.i18n = i18n
-    this.getOpts = (): Opts => {
+    this.getOpts = (): UppyOptions => {
       const opts = getOpts()
 
       if (
-        opts.restrictions.allowedFileTypes != null &&
+        opts.restrictions?.allowedFileTypes != null &&
         !Array.isArray(opts.restrictions.allowedFileTypes)
       ) {
         throw new TypeError('`restrictions.allowedFileTypes` must be an array')

@@ -2,7 +2,7 @@ import { render } from 'preact'
 import findDOMElement from '@uppy/utils/lib/findDOMElement'
 import getTextDirection from '@uppy/utils/lib/getTextDirection'
 
-import BasePlugin from './BasePlugin.js'
+import BasePlugin from './BasePlugin.ts'
 
 /**
  * Defer a frequent call to the microtask queue.
