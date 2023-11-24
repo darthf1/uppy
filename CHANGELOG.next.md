@@ -1,0 +1,8 @@
+- meta: uppy CDN: Export UIPlugin and BasePlugin (Artur Paikin / #4774)
+- @uppy/locales: Add missing translations to de_DE (Leonhard Melzer / #4800)
+- @uppy/store-default: refactor to typescript (Antoine du Hamel / #4785)
+- meta: improve js2ts script (Antoine du Hamel / #4786)
+- @uppy/companion-client: fix log type error (Mikael Finstad / #4766)
+- @uppy/companion-client: revert breaking change (Antoine du Hamel / #4801)
+- @uppy/locales: use TypeScript for source files (Antoine du Hamel / #4779)
+- meta: migrate AWS SDK v2 to v3 in `bin/uploadcdn` (Trivikram Kamat / #4776)

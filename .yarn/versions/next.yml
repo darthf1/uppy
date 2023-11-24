@@ -1,0 +1,5 @@
+releases:
+  "@uppy/companion-client": patch
+  "@uppy/locales": minor
+  "@uppy/store-default": minor
+  "uppy": minor
