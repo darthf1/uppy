@@ -4,6 +4,12 @@ export interface Locale<T extends number = number> {
   pluralize: (n: number) => T
 }
 
+export type OptionalPluralizeLocale<T extends number = number> =
+  | (Omit<Locale<T>, 'pluralize'> & {
+      pluralize?: (n: number) => T
+    })
+  | undefined
+
 // eslint-disable-next-line no-use-before-define
 export type I18n = Translator['translate']
 
@@ -101,7 +107,7 @@ const defaultOnMissingKey = (key: string): void => {
  * Usage example: `translator.translate('files_chosen', {smart_count: 3})`
  */
 export default class Translator {
-  protected locale: Locale
+  locale: Locale
 
   constructor(
     locales: Locale | Locale[],

@@ -6,7 +6,7 @@ import match from 'mime-match'
 import Translator from '@uppy/utils/lib/Translator'
 import type { UppyFile } from '@uppy/utils/lib/UppyFile'
 import type { I18n } from '@uppy/utils/lib/Translator'
-import type { UppyOptions } from '../types'
+import type { NonNullableUppyOptions } from './Uppy'
 
 export type Restrictions = {
   maxFileSize: number | null
@@ -47,14 +47,14 @@ class RestrictionError extends Error {
   isRestriction = true
 }
 
-class Restricter {
+class Restricter<Meta extends Record<string, unknown>> {
   i18n: Translator['translate']
 
-  getOpts: () => UppyOptions
+  getOpts: () => NonNullableUppyOptions<Meta>
 
-  constructor(getOpts: () => UppyOptions, i18n: I18n) {
+  constructor(getOpts: () => NonNullableUppyOptions<Meta>, i18n: I18n) {
     this.i18n = i18n
-    this.getOpts = (): UppyOptions => {
+    this.getOpts = (): NonNullableUppyOptions<Meta> => {
       const opts = getOpts()
 
       if (
@@ -177,7 +177,7 @@ class Restricter {
   getMissingRequiredMetaFields(file: UppyFile): {
     missingFields: string[]
     error: InstanceType<typeof RestrictionError>
-  } | null {
+  } {
     const error = new RestrictionError(
       this.i18n('missingRequiredMetaFieldOnFile', { fileName: file.name }),
     )

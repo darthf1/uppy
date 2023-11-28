@@ -10,7 +10,8 @@ import DefaultStore from '@uppy/store-default'
 import getFileType from '@uppy/utils/lib/getFileType'
 import getFileNameAndExtension from '@uppy/utils/lib/getFileNameAndExtension'
 import { getSafeFileId } from '@uppy/utils/lib/generateFileID'
-import type { UppyFile } from '@uppy/utils/lib/UppyFile'
+import type { UppyFile, IndexedObject } from '@uppy/utils/lib/UppyFile'
+import type { FileProgress } from '@uppy/utils/lib/FileProgress'
 import type { Locale, I18n } from '@uppy/utils/lib/Translator'
 import supportsUploadProgress from './supportsUploadProgress.ts'
 import getFileName from './getFileName.ts'
@@ -26,9 +27,157 @@ import packageJson from '../package.json'
 import locale from './locale.ts'
 
 import type BasePlugin from './BasePlugin.ts'
-import type { UppyOptions } from '../types'
+import type UIPlugin from './UIPlugin.ts'
+import type { Restrictions } from './Restricter.ts'
 
 type Processor = (fileIDs: string[], uploadID: string) => Promise<void>
+
+type FileRemoveReason = 'removed-by-user' | 'cancel-all'
+
+type LogLevel = 'info' | 'warning' | 'error'
+
+type UploadHandler = (fileIDs: string[]) => Promise<void>
+
+interface State<
+  TMeta extends IndexedObject<any> = Record<string, unknown>,
+  TBody extends IndexedObject<any> = Record<string, unknown>,
+> extends IndexedObject<any> {
+  capabilities: {
+    uploadProgress: boolean
+    individualCancellation: boolean
+    resumableUploads: boolean
+  }
+  currentUploads: Record<string, unknown>
+  error?: string | null
+  files: {
+    [key: string]: UppyFile<TMeta, TBody>
+  }
+  info?: Array<{
+    isHidden: boolean
+    type: LogLevel
+    message: string
+    details: string | null
+  }>
+  plugins?: IndexedObject<any>
+  totalProgress: number
+}
+
+export interface UppyOptions<TMeta extends IndexedObject<any>> {
+  id?: string
+  autoProceed?: boolean
+  /**
+   * @deprecated Use allowMultipleUploadBatches
+   */
+  allowMultipleUploads?: boolean
+  allowMultipleUploadBatches?: boolean
+  logger?: typeof debugLogger
+  debug?: boolean
+  restrictions?: Restrictions
+  meta?: TMeta
+  onBeforeFileAdded?: (
+    currentFile: UppyFile<TMeta>,
+    files: { [key: string]: UppyFile<TMeta> },
+  ) => UppyFile<TMeta> | boolean | undefined
+  onBeforeUpload?: (files: {
+    [key: string]: UppyFile<TMeta>
+  }) => { [key: string]: UppyFile<TMeta> } | boolean
+  locale?: Locale
+  store?: InstanceType<typeof DefaultStore<State>>
+  infoTimeout?: number
+}
+
+export type NonNullableUppyOptions<TMeta extends IndexedObject<any>> = Required<
+  UppyOptions<TMeta>
+>
+
+interface UploadResult<
+  TMeta extends IndexedObject<any>,
+  TBody extends IndexedObject<any>,
+> {
+  successful: UppyFile<TMeta, TBody>[]
+  failed: UppyFile<TMeta, TBody>[]
+}
+
+interface ErrorResponse {
+  status: number
+  body: any
+}
+
+interface SuccessResponse {
+  uploadURL?: string
+  status?: number
+  body?: any
+  bytesUploaded?: number
+}
+
+type GenericEventCallback = () => void
+type FileAddedCallback<TMeta extends IndexedObject<any>> = (
+  file: UppyFile<TMeta>,
+) => void
+type FilesAddedCallback<TMeta extends IndexedObject<any>> = (
+  files: UppyFile<TMeta>[],
+) => void
+type FileRemovedCallback<TMeta extends IndexedObject<any>> = (
+  file: UppyFile<TMeta>,
+  reason: FileRemoveReason,
+) => void
+type UploadCallback = (data: { id: string; fileIDs: string[] }) => void
+type ProgressCallback = (progress: number) => void
+type PreProcessCompleteCallback<TMeta extends IndexedObject<any>> = (
+  file: UppyFile<TMeta> | undefined,
+) => void
+type UploadPauseCallback = (
+  fileID: UppyFile['id'] | undefined,
+  isPaused: boolean,
+) => void
+type UploadProgressCallback<TMeta extends IndexedObject<any>> = (
+  file: UppyFile<TMeta> | undefined,
+  progress: FileProgress,
+) => void
+type UploadSuccessCallback<TMeta extends IndexedObject<any>> = (
+  file: UppyFile<TMeta> | undefined,
+  response: SuccessResponse,
+) => void
+type UploadCompleteCallback<TMeta extends IndexedObject<any>> = (
+  result: UploadResult<TMeta, Record<string, unknown>>,
+) => void
+type ErrorCallback = (error: Error) => void
+type UploadErrorCallback<TMeta extends IndexedObject<any>> = (
+  file: UppyFile<TMeta> | undefined,
+  error: Error,
+  response?: ErrorResponse,
+) => void
+type UploadRetryCallback = (fileID: string) => void
+type PauseAllCallback = (fileIDs: string[]) => void
+type ResumeAllCallback = (fileIDs: string[]) => void
+type RetryAllCallback = (fileIDs: string[]) => void
+type RestrictionFailedCallback<TMeta extends IndexedObject<any>> = (
+  file: UppyFile<TMeta> | undefined,
+  error: Error,
+) => void
+interface UppyEventMap<TMeta extends IndexedObject<any>> {
+  'cancel-all': GenericEventCallback
+  complete: UploadCompleteCallback<TMeta>
+  error: ErrorCallback
+  'file-added': FileAddedCallback<TMeta>
+  'file-removed': FileRemovedCallback<TMeta>
+  'files-added': FilesAddedCallback<TMeta>
+  'info-hidden': GenericEventCallback
+  'info-visible': GenericEventCallback
+  'pause-all': PauseAllCallback
+  'preprocess-complete': PreProcessCompleteCallback<TMeta>
+  progress: ProgressCallback
+  'reset-progress': GenericEventCallback
+  'resume-all': ResumeAllCallback
+  'restriction-failed': RestrictionFailedCallback<TMeta>
+  'retry-all': RetryAllCallback
+  'upload-error': UploadErrorCallback<TMeta>
+  'upload-pause': UploadPauseCallback
+  'upload-progress': UploadProgressCallback<TMeta>
+  'upload-retry': UploadRetryCallback
+  'upload-success': UploadSuccessCallback<TMeta>
+  upload: UploadCallback
+}
 
 const defaultUploadState = {
   totalProgress: 0,
@@ -42,10 +191,13 @@ const defaultUploadState = {
  * Manages plugins, state updates, acts as an event bus,
  * adds/removes files and metadata.
  */
-class Uppy {
+export class Uppy<
+  TMeta extends IndexedObject<any>,
+  TBody extends IndexedObject<any>,
+> {
   static VERSION = packageJson.version
 
-  #plugins: Record<string, BasePlugin<Record<string, unknown>>[]> =
+  #plugins: Record<string, UIPlugin<Record<string, unknown>>[]> =
     Object.create(null)
 
   #restricter
@@ -62,21 +214,29 @@ class Uppy {
 
   defaultLocale: Omit<Locale, 'pluralize'>
 
-  opts: UppyOptions
+  locale: Locale
 
-  store: UppyOptions['store']
+  // The user optionally passes in options, but we set defaults for missing options.
+  // We consider all options present after the contructor has run.
+  opts: NonNullableUppyOptions<TMeta>
+
+  store: InstanceType<typeof DefaultStore<State>>
 
   i18n: I18n
+
+  i18nArray: Translator['translateArray']
+
+  scheduledAutoProceed: ReturnType<typeof setTimeout> | null = null
 
   /**
    * Instantiate Uppy
    *
    * @param {object} opts — Uppy options
    */
-  constructor(opts: UppyOptions) {
+  constructor(opts: UppyOptions<TMeta>) {
     this.defaultLocale = locale
 
-    const defaultOptions: UppyOptions = {
+    const defaultOptions: UppyOptions<Record<string, unknown>> = {
       id: 'uppy',
       autoProceed: false,
       allowMultipleUploadBatches: true,
@@ -90,14 +250,17 @@ class Uppy {
       infoTimeout: 5000,
     }
 
+    const merged = { ...defaultOptions, ...opts } as Omit<
+      NonNullableUppyOptions<TMeta>,
+      'restrictions'
+    >
     // Merge default options with the ones set by user,
     // making sure to merge restrictions too
     this.opts = {
-      ...defaultOptions,
-      ...opts,
+      ...merged,
       restrictions: {
         ...defaultOptions.restrictions,
-        ...(opts && opts.restrictions),
+        ...(opts && (opts.restrictions as Restrictions)),
       },
     }
 
@@ -131,7 +294,7 @@ class Uppy {
       info: [],
     })
 
-    this.#restricter = new Restricter(() => this.opts, this.i18n)
+    this.#restricter = new Restricter<TMeta>(() => this.opts, this.i18n)
 
     this.#storeUnsubscribe = this.store.subscribe(
       (prevState, nextState, patch) => {
@@ -153,17 +316,26 @@ class Uppy {
     this.#emitter.emit(event, ...args)
   }
 
-  on(event, callback) {
+  on<K extends keyof UppyEventMap<TMeta>>(
+    event: K,
+    callback: UppyEventMap<TMeta>[K],
+  ): this {
     this.#emitter.on(event, callback)
     return this
   }
 
-  once(event, callback) {
+  once<K extends keyof UppyEventMap<TMeta>>(
+    event: K,
+    callback: UppyEventMap<TMeta>[K],
+  ): this {
     this.#emitter.once(event, callback)
     return this
   }
 
-  off(event, callback) {
+  off<K extends keyof UppyEventMap<TMeta>>(
+    event: K,
+    callback: UppyEventMap<TMeta>[K],
+  ): this {
     this.#emitter.off(event, callback)
     return this
   }
@@ -173,31 +345,29 @@ class Uppy {
    * Called each time state changes.
    *
    */
-  updateAll(state) {
-    this.iteratePlugins((plugin) => {
+  updateAll(state: Partial<State>): void {
+    this.iteratePlugins((plugin: BasePlugin<any> | UIPlugin<any>) => {
       plugin.update(state)
     })
   }
 
   /**
    * Updates state with a patch
-   *
-   * @param {object} patch {foo: 'bar'}
    */
-  setState(patch) {
+  setState(patch?: Partial<State>): void {
     this.store.setState(patch)
   }
 
   /**
    * Returns current state.
-   *
-   * @returns {object}
    */
-  getState() {
+  getState(): State {
     return this.store.getState()
   }
 
-  patchFilesState(filesWithNewState) {
+  patchFilesState(filesWithNewState: {
+    [id: string]: Partial<UppyFile<TMeta, TBody>>
+  }): void {
     const existingFilesState = this.getState().files
 
     this.setState({
@@ -219,7 +389,7 @@ class Uppy {
   /**
    * Shorthand to set state for a specific file.
    */
-  setFileState(fileID, state) {
+  setFileState(fileID: string, state: Partial<UppyFile<TMeta, TBody>>): void {
     if (!this.getState().files[fileID]) {
       throw new Error(
         `Can’t set state for ${fileID} (the file could have been removed)`,
@@ -237,13 +407,13 @@ class Uppy {
     this.locale = translator.locale
   }
 
-  setOptions(newOpts) {
+  setOptions(newOpts: Partial<UppyOptions<TMeta>>): void {
     this.opts = {
       ...this.opts,
       ...newOpts,
       restrictions: {
         ...this.opts.restrictions,
-        ...(newOpts && newOpts.restrictions),
+        ...(newOpts && (newOpts.restrictions as Restrictions)),
       },
     }
 
@@ -260,19 +430,19 @@ class Uppy {
     }
 
     // Note: this is not the preact `setState`, it's an internal function that has the same name.
-    this.setState() // so that UI re-renders with new options
+    this.setState(undefined) // so that UI re-renders with new options
   }
 
   // todo next major: rename to something better? (it doesn't just reset progress)
-  resetProgress() {
+  resetProgress(): void {
     const defaultProgress = {
       percentage: 0,
       bytesUploaded: 0,
       uploadComplete: false,
-      uploadStarted: null,
+      uploadStarted: 0,
     }
     const files = { ...this.getState().files }
-    const updatedFiles = {}
+    const updatedFiles: State['files'] = {}
 
     Object.keys(files).forEach((fileID) => {
       updatedFiles[fileID] = {
@@ -289,36 +459,35 @@ class Uppy {
     this.emit('reset-progress')
   }
 
-  /** @protected */
-  clearUploadedFiles() {
+  protected clearUploadedFiles(): void {
     this.setState({ ...defaultUploadState, files: {} })
   }
 
-  addPreProcessor(fn) {
+  addPreProcessor(fn: UploadHandler): void {
     this.#preProcessors.add(fn)
   }
 
-  removePreProcessor(fn) {
+  removePreProcessor(fn: UploadHandler): boolean {
     return this.#preProcessors.delete(fn)
   }
 
-  addPostProcessor(fn) {
+  addPostProcessor(fn: UploadHandler): void {
     this.#postProcessors.add(fn)
   }
 
-  removePostProcessor(fn) {
+  removePostProcessor(fn: UploadHandler): boolean {
     return this.#postProcessors.delete(fn)
   }
 
-  addUploader(fn) {
+  addUploader(fn: UploadHandler): void {
     this.#uploaders.add(fn)
   }
 
-  removeUploader(fn) {
+  removeUploader(fn: UploadHandler): boolean {
     return this.#uploaders.delete(fn)
   }
 
-  setMeta(data) {
+  setMeta(data: State['meta']): void {
     const updatedMeta = { ...this.getState().meta, ...data }
     const updatedFiles = { ...this.getState().files }
 
@@ -338,7 +507,7 @@ class Uppy {
     })
   }
 
-  setFileMeta(fileID, data) {
+  setFileMeta(fileID: string, data: State['meta']): void {
     const updatedFiles = { ...this.getState().files }
     if (!updatedFiles[fileID]) {
       this.log(
@@ -354,26 +523,41 @@ class Uppy {
 
   /**
    * Get a file object.
-   *
-   * @param {string} fileID The ID of the file object to return.
    */
-  getFile(fileID) {
+  getFile(fileID: string): UppyFile {
     return this.getState().files[fileID]
   }
 
   /**
    * Get all files in an array.
    */
-  getFiles() {
+  getFiles(): UppyFile[] {
     const { files } = this.getState()
     return Object.values(files)
   }
 
-  getFilesByIds(ids) {
+  getFilesByIds(ids: string[]): UppyFile[] {
     return ids.map((id) => this.getFile(id))
   }
 
-  getObjectOfFilesPerState() {
+  // TODO: remove or refactor this method. It's very inefficient
+  getObjectOfFilesPerState(): {
+    newFiles: UppyFile[]
+    startedFiles: UppyFile[]
+    uploadStartedFiles: UppyFile[]
+    pausedFiles: UppyFile[]
+    completeFiles: UppyFile[]
+    erroredFiles: UppyFile[]
+    inProgressFiles: UppyFile[]
+    inProgressNotPausedFiles: UppyFile[]
+    processingFiles: UppyFile[]
+    isUploadStarted: boolean
+    isAllComplete: boolean
+    isAllErrored: boolean
+    isAllPaused: boolean
+    isUploadInProgress: boolean
+    isSomeGhost: boolean
+  } {
     const { files: filesObject, totalProgress, error } = this.getState()
     const files = Object.values(filesObject)
     const inProgressFiles = files.filter(
@@ -424,21 +608,18 @@ class Uppy {
     }
   }
 
-  /*
-   * @constructs
-   * @param { Error[] } errors
-   * @param { undefined } file
-   */
-  /*
-   * @constructs
-   * @param { RestrictionError } error
-   */
-  #informAndEmit(errors) {
+  #informAndEmit(
+    errors: {
+      message: string
+      isUserFacing: boolean
+      details?: string
+      isRestriction?: boolean
+      file?: UppyFile
+    }[],
+  ): void {
     for (const error of errors) {
-      const { file, isRestriction } = error
-
-      if (isRestriction) {
-        this.emit('restriction-failed', file, error)
+      if (error instanceof RestrictionError) {
+        this.emit('restriction-failed', error.file, error)
       } else {
         this.emit('error', error)
       }
@@ -464,7 +645,7 @@ class Uppy {
     }
   }
 
-  validateRestrictions(file, files = this.getFiles()) {
+  validateRestrictions(file: UppyFile, files = this.getFiles()): null {
     try {
       this.#restricter.validate(files, [file])
     } catch (err) {
@@ -473,7 +654,7 @@ class Uppy {
     return null
   }
 
-  #checkRequiredMetaFieldsOnFile(file) {
+  #checkRequiredMetaFieldsOnFile(file: UppyFile): boolean {
     const { missingFields, error } =
       this.#restricter.getMissingRequiredMetaFields(file)
 
@@ -486,7 +667,7 @@ class Uppy {
     return true
   }
 
-  #checkRequiredMetaFields(files) {
+  #checkRequiredMetaFields(files: State['files']): boolean {
     let success = true
     for (const file of Object.values(files)) {
       if (!this.#checkRequiredMetaFieldsOnFile(file)) {
@@ -496,7 +677,7 @@ class Uppy {
     return success
   }
 
-  #assertNewUploadAllowed(file) {
+  #assertNewUploadAllowed(file: UppyFile): void {
     const { allowNewUpload } = this.getState()
 
     if (allowNewUpload === false) {
@@ -508,7 +689,7 @@ class Uppy {
     }
   }
 
-  checkIfFileAlreadyExists(fileID) {
+  checkIfFileAlreadyExists(fileID: string): boolean {
     const { files } = this.getState()
 
     if (files[fileID] && !files[fileID].isGhost) {
@@ -520,11 +701,11 @@ class Uppy {
   /**
    * Create a file state object based on user-provided `addFile()` options.
    */
-  #transformFile(fileDescriptorOrFile) {
+  #transformFile(fileDescriptorOrFile: File | UppyFile): UppyFile {
     // Uppy expects files in { name, type, size, data } format.
     // If the actual File object is passed from input[type=file] or drag-drop,
     // we normalize it to match Uppy file object
-    const fileDescriptor =
+    const file = (
       fileDescriptorOrFile instanceof File
         ? {
             name: fileDescriptorOrFile.name,
@@ -533,24 +714,22 @@ class Uppy {
             data: fileDescriptorOrFile,
           }
         : fileDescriptorOrFile
+    ) as UppyFile
 
-    const fileType = getFileType(fileDescriptor)
-    const fileName = getFileName(fileType, fileDescriptor)
+    const fileType = getFileType(file)
+    const fileName = getFileName(fileType, file)
     const fileExtension = getFileNameAndExtension(fileName).extension
-    const isRemote = Boolean(fileDescriptor.isRemote)
-    const id = getSafeFileId(fileDescriptor)
+    const id = getSafeFileId(file)
 
-    const meta = fileDescriptor.meta || {}
+    const meta = file.meta || {}
     meta.name = fileName
     meta.type = fileType
 
     // `null` means the size is unknown.
-    const size = Number.isFinite(fileDescriptor.data.size)
-      ? fileDescriptor.data.size
-      : null
+    const size = Number.isFinite(file.data.size) ? file.data.size : null
 
     return {
-      source: fileDescriptor.source || '',
+      source: file.source || '',
       id,
       name: fileName,
       extension: fileExtension || '',
@@ -559,8 +738,9 @@ class Uppy {
         ...meta,
       },
       type: fileType,
-      data: fileDescriptor.data,
+      data: file.data,
       progress: {
+        progress: 0,
         percentage: 0,
         bytesUploaded: 0,
         bytesTotal: size,
@@ -568,14 +748,15 @@ class Uppy {
         uploadStarted: null,
       },
       size,
-      isRemote,
-      remote: fileDescriptor.remote || '',
-      preview: fileDescriptor.preview,
+      isGhost: false,
+      isRemote: file.isRemote || false,
+      remote: file.remote,
+      preview: file.preview,
     }
   }
 
   // Schedule an upload if `autoProceed` is enabled.
-  #startIfAutoProceed() {
+  #startIfAutoProceed(): void {
     if (this.opts.autoProceed && !this.scheduledAutoProceed) {
       this.scheduledAutoProceed = setTimeout(() => {
         this.scheduledAutoProceed = null
@@ -588,7 +769,11 @@ class Uppy {
     }
   }
 
-  #checkAndUpdateFileState(filesToAdd) {
+  #checkAndUpdateFileState(filesToAdd: UppyFile[]): {
+    nextFilesState: State['files']
+    validFilesToAdd: UppyFile[]
+    errors: unknown[]
+  } {
     const { files: existingFiles } = this.getState()
 
     // create a copy of the files object only once
@@ -609,6 +794,7 @@ class Uppy {
           const { isGhost: _, ...existingFileState } = existingFiles[newFile.id]
           newFile = {
             ...existingFileState,
+            isGhost: false,
             data: fileToAdd.data,
           }
           this.log(
@@ -1424,7 +1610,9 @@ class Uppy {
    *
    * @param {Function} method that will be run on each plugin
    */
-  iteratePlugins(method) {
+  iteratePlugins(
+    method: (plugin: BasePlugin<any> | UIPlugin<any>) => void,
+  ): void {
     Object.values(this.#plugins).flat(1).forEach(method)
   }
 
@@ -1521,7 +1709,7 @@ class Uppy {
    * Passes messages to a function, provided in `opts.logger`.
    * If `opts.logger: Uppy.debugLogger` or `opts.debug: true`, logs to the browser console.
    */
-  log(message: string | Record<string, unknown>, type?: string): void {
+  log(message: string | Record<string, unknown> | Error, type?: string): void {
     const { logger } = this.opts
     switch (type) {
       case 'error':

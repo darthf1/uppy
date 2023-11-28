@@ -1,9 +1,6 @@
 import type { FileProgress } from './FileProgress'
 
-interface IndexedObject<T> {
-  [key: string]: T
-  [key: number]: T
-}
+export type IndexedObject<T> = Record<string, T>
 
 export type InternalMetadata = { name: string; type?: string }
 
@@ -22,7 +19,8 @@ export interface UppyFile<
   meta: InternalMetadata & TMeta
   name: string
   preview?: string
-  progress?: FileProgress
+  progress: FileProgress
+  missingRequiredMetaFields?: string[]
   remote?: {
     host: string
     url: string
@@ -30,8 +28,8 @@ export interface UppyFile<
     provider?: string
     companionUrl: string
   }
-  serverToken: string
-  size: number
+  serverToken?: string
+  size: number | null
   source?: string
   type?: string
   response?: {

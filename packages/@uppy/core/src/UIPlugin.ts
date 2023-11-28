@@ -6,14 +6,13 @@ import BasePlugin from './BasePlugin.ts'
 
 /**
  * Defer a frequent call to the microtask queue.
- *
- * @param {() => T} fn
- * @returns {Promise<T>}
  */
-function debounce (fn) {
-  let calling = null
-  let latestArgs = null
-  return (...args) => {
+function debounce(fn: { (...args: any[]): any }): {
+  (...args: any[]): Promise<void>
+} {
+  let calling: Promise<void> | null = null
+  let latestArgs: any[] | null = null
+  return (...args: any[]) => {
     latestArgs = args
     if (!calling) {
       calling = Promise.resolve().then(() => {
@@ -22,6 +21,7 @@ function debounce (fn) {
         // recent state, if multiple calls happened since this task
         // was queued. So we use the `latestArgs`, which definitely
         // is the most recent call.
+        // @ts-expect-error latestArgs is iterable
         return fn(...latestArgs)
       })
     }
@@ -35,10 +35,10 @@ function debounce (fn) {
  *
  * For plugins without an user interface, see BasePlugin.
  */
-class UIPlugin extends BasePlugin {
+class UIPlugin<Opts extends Record<string, unknown>> extends BasePlugin<Opts> {
   #updateUI
 
-  getTargetPlugin (target) {
+  getTargetPlugin(target: unknown | UIPlugin<Opts>): UIPlugin<Opts> {
     let targetPlugin
     if (typeof target === 'object' && target instanceof UIPlugin) {
       // Targeting a plugin *instance*
@@ -47,7 +47,7 @@ class UIPlugin extends BasePlugin {
       // Targeting a plugin type
       const Target = target
       // Find the target plugin instance.
-      this.uppy.iteratePlugins(p => {
+      this.uppy.iteratePlugins((p) => {
         if (p instanceof Target) {
           targetPlugin = p
         }
@@ -62,7 +62,7 @@ class UIPlugin extends BasePlugin {
    * If it’s an object — target is a plugin, and we search `plugins`
    * for a plugin with same name and return its target.
    */
-  mount (target, plugin) {
+  mount(target, plugin) {
     const callerPluginName = plugin.id
 
     const targetElement = findDOMElement(target)
@@ -85,7 +85,9 @@ class UIPlugin extends BasePlugin {
         this.afterUpdate()
       })
 
-      this.uppy.log(`Installing ${callerPluginName} to a DOM element '${target}'`)
+      this.uppy.log(
+        `Installing ${callerPluginName} to a DOM element '${target}'`,
+      )
 
       if (this.opts.replaceTargetContent) {
         // Doing render(h(null), targetElement), which should have been
@@ -99,7 +101,8 @@ class UIPlugin extends BasePlugin {
       targetElement.appendChild(uppyRootElement)
 
       // Set the text direction if the page has not defined one.
-      uppyRootElement.dir = this.opts.direction || getTextDirection(uppyRootElement) || 'ltr'
+      uppyRootElement.dir =
+        this.opts.direction || getTextDirection(uppyRootElement) || 'ltr'
 
       this.onMount()
 
@@ -121,26 +124,28 @@ class UIPlugin extends BasePlugin {
 
     let message = `Invalid target option given to ${callerPluginName}.`
     if (typeof target === 'function') {
-      message += ' The given target is not a Plugin class. '
-        + 'Please check that you\'re not specifying a React Component instead of a plugin. '
-        + 'If you are using @uppy/* packages directly, make sure you have only 1 version of @uppy/core installed: '
-        + 'run `npm ls @uppy/core` on the command line and verify that all the versions match and are deduped correctly.'
+      message +=
+        ' The given target is not a Plugin class. ' +
+        "Please check that you're not specifying a React Component instead of a plugin. " +
+        'If you are using @uppy/* packages directly, make sure you have only 1 version of @uppy/core installed: ' +
+        'run `npm ls @uppy/core` on the command line and verify that all the versions match and are deduped correctly.'
     } else {
-      message += 'If you meant to target an HTML element, please make sure that the element exists. '
-        + 'Check that the <script> tag initializing Uppy is right before the closing </body> tag at the end of the page. '
-        + '(see https://github.com/transloadit/uppy/issues/1042)\n\n'
-        + 'If you meant to target a plugin, please confirm that your `import` statements or `require` calls are correct.'
+      message +=
+        'If you meant to target an HTML element, please make sure that the element exists. ' +
+        'Check that the <script> tag initializing Uppy is right before the closing </body> tag at the end of the page. ' +
+        '(see https://github.com/transloadit/uppy/issues/1042)\n\n' +
+        'If you meant to target a plugin, please confirm that your `import` statements or `require` calls are correct.'
     }
     throw new Error(message)
   }
 
-  update (state) {
+  update(state) {
     if (this.el != null) {
       this.#updateUI?.(state)
     }
   }
 
-  unmount () {
+  unmount() {
     if (this.isTargetDOMEl) {
       this.el?.remove()
     }
@@ -148,10 +153,10 @@ class UIPlugin extends BasePlugin {
   }
 
   // eslint-disable-next-line class-methods-use-this
-  onMount () {}
+  onMount() {}
 
   // eslint-disable-next-line class-methods-use-this
-  onUnmount () {}
+  onUnmount() {}
 }
 
 export default UIPlugin
