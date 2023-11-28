@@ -1,13 +1,12 @@
 import type { FileProgress } from './FileProgress'
 
-export type IndexedObject<T> = Record<string, T>
+export type Meta = Record<string, unknown>
+
+export type Body = Record<string, unknown>
 
 export type InternalMetadata = { name: string; type?: string }
 
-export interface UppyFile<
-  TMeta = IndexedObject<any>,
-  TBody = IndexedObject<any>,
-> {
+export interface UppyFile<M = Meta, B = Body> {
   data: Blob | File
   error?: Error
   extension: string
@@ -16,7 +15,7 @@ export interface UppyFile<
   isRestored?: boolean
   isRemote: boolean
   isGhost: boolean
-  meta: InternalMetadata & TMeta
+  meta: InternalMetadata & M
   name: string
   preview?: string
   progress: FileProgress
@@ -33,7 +32,7 @@ export interface UppyFile<
   source?: string
   type?: string
   response?: {
-    body: TBody
+    body: B
     status: number
     uploadURL: string | undefined
   }

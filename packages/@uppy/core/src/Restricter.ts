@@ -47,14 +47,14 @@ class RestrictionError extends Error {
   isRestriction = true
 }
 
-class Restricter<Meta extends Record<string, unknown>> {
+class Restricter {
   i18n: Translator['translate']
 
-  getOpts: () => NonNullableUppyOptions<Meta>
+  getOpts: () => NonNullableUppyOptions<any, any>
 
-  constructor(getOpts: () => NonNullableUppyOptions<Meta>, i18n: I18n) {
+  constructor(getOpts: () => NonNullableUppyOptions<any, any>, i18n: I18n) {
     this.i18n = i18n
-    this.getOpts = (): NonNullableUppyOptions<Meta> => {
+    this.getOpts = (): NonNullableUppyOptions => {
       const opts = getOpts()
 
       if (
@@ -86,7 +86,10 @@ class Restricter<Meta extends Record<string, unknown>> {
     }
 
     if (maxTotalFileSize) {
-      let totalFilesSize = existingFiles.reduce((total, f) => total + f.size, 0)
+      let totalFilesSize = existingFiles.reduce(
+        (total, f) => (total + (f.size ?? 0)) as number,
+        0,
+      )
 
       for (const addingFile of addingFiles) {
         if (addingFile.size != null) {

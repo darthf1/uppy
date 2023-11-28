@@ -10,7 +10,7 @@ import DefaultStore from '@uppy/store-default'
 import getFileType from '@uppy/utils/lib/getFileType'
 import getFileNameAndExtension from '@uppy/utils/lib/getFileNameAndExtension'
 import { getSafeFileId } from '@uppy/utils/lib/generateFileID'
-import type { UppyFile, IndexedObject } from '@uppy/utils/lib/UppyFile'
+import type { UppyFile, Meta, Body } from '@uppy/utils/lib/UppyFile'
 import type { FileProgress } from '@uppy/utils/lib/FileProgress'
 import type { Locale, I18n } from '@uppy/utils/lib/Translator'
 import supportsUploadProgress from './supportsUploadProgress.ts'
@@ -38,10 +38,8 @@ type LogLevel = 'info' | 'warning' | 'error'
 
 type UploadHandler = (fileIDs: string[]) => Promise<void>
 
-interface State<
-  TMeta extends IndexedObject<any> = Record<string, unknown>,
-  TBody extends IndexedObject<any> = Record<string, unknown>,
-> extends IndexedObject<any> {
+interface State<M extends Meta = Meta, B extends Body = Body>
+  extends Record<string, unknown> {
   capabilities: {
     uploadProgress: boolean
     individualCancellation: boolean
@@ -50,7 +48,7 @@ interface State<
   currentUploads: Record<string, unknown>
   error?: string | null
   files: {
-    [key: string]: UppyFile<TMeta, TBody>
+    [key: string]: UppyFile<M, B>
   }
   info?: Array<{
     isHidden: boolean
@@ -58,11 +56,11 @@ interface State<
     message: string
     details: string | null
   }>
-  plugins?: IndexedObject<any>
+  plugins?: Record<string, unknown>
   totalProgress: number
 }
 
-export interface UppyOptions<TMeta extends IndexedObject<any>> {
+export interface UppyOptions<M extends Meta = Meta, B extends Body = Body> {
   id?: string
   autoProceed?: boolean
   /**
@@ -73,29 +71,27 @@ export interface UppyOptions<TMeta extends IndexedObject<any>> {
   logger?: typeof debugLogger
   debug?: boolean
   restrictions?: Restrictions
-  meta?: TMeta
+  meta?: M
   onBeforeFileAdded?: (
-    currentFile: UppyFile<TMeta>,
-    files: { [key: string]: UppyFile<TMeta> },
-  ) => UppyFile<TMeta> | boolean | undefined
+    currentFile: UppyFile<M>,
+    files: { [key: string]: UppyFile<M> },
+  ) => UppyFile<M> | boolean | undefined
   onBeforeUpload?: (files: {
-    [key: string]: UppyFile<TMeta>
-  }) => { [key: string]: UppyFile<TMeta> } | boolean
+    [key: string]: UppyFile<M>
+  }) => { [key: string]: UppyFile<M> } | boolean
   locale?: Locale
-  store?: InstanceType<typeof DefaultStore<State>>
+  store?: InstanceType<typeof DefaultStore<State<M, B>>>
   infoTimeout?: number
 }
 
-export type NonNullableUppyOptions<TMeta extends IndexedObject<any>> = Required<
-  UppyOptions<TMeta>
->
+export type NonNullableUppyOptions<
+  M extends Meta = Meta,
+  B extends Body = Body,
+> = Required<UppyOptions<M, B>>
 
-interface UploadResult<
-  TMeta extends IndexedObject<any>,
-  TBody extends IndexedObject<any>,
-> {
-  successful: UppyFile<TMeta, TBody>[]
-  failed: UppyFile<TMeta, TBody>[]
+interface UploadResult<M extends Meta = Meta, B extends Body = Body> {
+  successful: UppyFile<M, B>[]
+  failed: UppyFile<M, B>[]
 }
 
 interface ErrorResponse {
@@ -111,39 +107,35 @@ interface SuccessResponse {
 }
 
 type GenericEventCallback = () => void
-type FileAddedCallback<TMeta extends IndexedObject<any>> = (
-  file: UppyFile<TMeta>,
-) => void
-type FilesAddedCallback<TMeta extends IndexedObject<any>> = (
-  files: UppyFile<TMeta>[],
-) => void
-type FileRemovedCallback<TMeta extends IndexedObject<any>> = (
-  file: UppyFile<TMeta>,
+type FileAddedCallback<M extends Meta> = (file: UppyFile<M>) => void
+type FilesAddedCallback<M extends Meta> = (files: UppyFile<M>[]) => void
+type FileRemovedCallback<M extends Meta> = (
+  file: UppyFile<M>,
   reason: FileRemoveReason,
 ) => void
 type UploadCallback = (data: { id: string; fileIDs: string[] }) => void
 type ProgressCallback = (progress: number) => void
-type PreProcessCompleteCallback<TMeta extends IndexedObject<any>> = (
-  file: UppyFile<TMeta> | undefined,
+type PreProcessCompleteCallback<M extends Meta> = (
+  file: UppyFile<M> | undefined,
 ) => void
 type UploadPauseCallback = (
   fileID: UppyFile['id'] | undefined,
   isPaused: boolean,
 ) => void
-type UploadProgressCallback<TMeta extends IndexedObject<any>> = (
-  file: UppyFile<TMeta> | undefined,
+type UploadProgressCallback<M extends Meta> = (
+  file: UppyFile<M> | undefined,
   progress: FileProgress,
 ) => void
-type UploadSuccessCallback<TMeta extends IndexedObject<any>> = (
-  file: UppyFile<TMeta> | undefined,
+type UploadSuccessCallback<M extends Meta> = (
+  file: UppyFile<M> | undefined,
   response: SuccessResponse,
 ) => void
-type UploadCompleteCallback<TMeta extends IndexedObject<any>> = (
-  result: UploadResult<TMeta, Record<string, unknown>>,
+type UploadCompleteCallback<M extends Meta> = (
+  result: UploadResult<M, Record<string, unknown>>,
 ) => void
 type ErrorCallback = (error: Error) => void
-type UploadErrorCallback<TMeta extends IndexedObject<any>> = (
-  file: UppyFile<TMeta> | undefined,
+type UploadErrorCallback<M extends Meta> = (
+  file: UppyFile<M> | undefined,
   error: Error,
   response?: ErrorResponse,
 ) => void
@@ -151,31 +143,32 @@ type UploadRetryCallback = (fileID: string) => void
 type PauseAllCallback = (fileIDs: string[]) => void
 type ResumeAllCallback = (fileIDs: string[]) => void
 type RetryAllCallback = (fileIDs: string[]) => void
-type RestrictionFailedCallback<TMeta extends IndexedObject<any>> = (
-  file: UppyFile<TMeta> | undefined,
+type RestrictionFailedCallback<M extends Meta> = (
+  file: UppyFile<M> | undefined,
   error: Error,
 ) => void
-interface UppyEventMap<TMeta extends IndexedObject<any>> {
+
+interface UppyEventMap<M extends Meta> {
   'cancel-all': GenericEventCallback
-  complete: UploadCompleteCallback<TMeta>
+  complete: UploadCompleteCallback<M>
   error: ErrorCallback
-  'file-added': FileAddedCallback<TMeta>
-  'file-removed': FileRemovedCallback<TMeta>
-  'files-added': FilesAddedCallback<TMeta>
+  'file-added': FileAddedCallback<M>
+  'file-removed': FileRemovedCallback<M>
+  'files-added': FilesAddedCallback<M>
   'info-hidden': GenericEventCallback
   'info-visible': GenericEventCallback
   'pause-all': PauseAllCallback
-  'preprocess-complete': PreProcessCompleteCallback<TMeta>
+  'preprocess-complete': PreProcessCompleteCallback<M>
   progress: ProgressCallback
   'reset-progress': GenericEventCallback
   'resume-all': ResumeAllCallback
-  'restriction-failed': RestrictionFailedCallback<TMeta>
+  'restriction-failed': RestrictionFailedCallback<M>
   'retry-all': RetryAllCallback
-  'upload-error': UploadErrorCallback<TMeta>
+  'upload-error': UploadErrorCallback<M>
   'upload-pause': UploadPauseCallback
-  'upload-progress': UploadProgressCallback<TMeta>
+  'upload-progress': UploadProgressCallback<M>
   'upload-retry': UploadRetryCallback
-  'upload-success': UploadSuccessCallback<TMeta>
+  'upload-success': UploadSuccessCallback<M>
   upload: UploadCallback
 }
 
@@ -191,10 +184,7 @@ const defaultUploadState = {
  * Manages plugins, state updates, acts as an event bus,
  * adds/removes files and metadata.
  */
-export class Uppy<
-  TMeta extends IndexedObject<any>,
-  TBody extends IndexedObject<any>,
-> {
+export class Uppy<M extends Meta = Meta, B extends Body = Body> {
   static VERSION = packageJson.version
 
   #plugins: Record<string, UIPlugin<Record<string, unknown>>[]> =
@@ -218,9 +208,9 @@ export class Uppy<
 
   // The user optionally passes in options, but we set defaults for missing options.
   // We consider all options present after the contructor has run.
-  opts: NonNullableUppyOptions<TMeta>
+  opts: NonNullableUppyOptions
 
-  store: InstanceType<typeof DefaultStore<State>>
+  store: NonNullableUppyOptions['store']
 
   i18n: I18n
 
@@ -233,10 +223,10 @@ export class Uppy<
    *
    * @param {object} opts — Uppy options
    */
-  constructor(opts: UppyOptions<TMeta>) {
+  constructor(opts: UppyOptions<M, B>) {
     this.defaultLocale = locale
 
-    const defaultOptions: UppyOptions<Record<string, unknown>> = {
+    const defaultOptions: UppyOptions = {
       id: 'uppy',
       autoProceed: false,
       allowMultipleUploadBatches: true,
@@ -251,7 +241,7 @@ export class Uppy<
     }
 
     const merged = { ...defaultOptions, ...opts } as Omit<
-      NonNullableUppyOptions<TMeta>,
+      NonNullableUppyOptions,
       'restrictions'
     >
     // Merge default options with the ones set by user,
@@ -294,7 +284,7 @@ export class Uppy<
       info: [],
     })
 
-    this.#restricter = new Restricter<TMeta>(() => this.opts, this.i18n)
+    this.#restricter = new Restricter(() => this.opts, this.i18n)
 
     this.#storeUnsubscribe = this.store.subscribe(
       (prevState, nextState, patch) => {
@@ -316,25 +306,25 @@ export class Uppy<
     this.#emitter.emit(event, ...args)
   }
 
-  on<K extends keyof UppyEventMap<TMeta>>(
+  on<K extends keyof UppyEventMap<M>>(
     event: K,
-    callback: UppyEventMap<TMeta>[K],
+    callback: UppyEventMap<M>[K],
   ): this {
     this.#emitter.on(event, callback)
     return this
   }
 
-  once<K extends keyof UppyEventMap<TMeta>>(
+  once<K extends keyof UppyEventMap<M>>(
     event: K,
-    callback: UppyEventMap<TMeta>[K],
+    callback: UppyEventMap<M>[K],
   ): this {
     this.#emitter.once(event, callback)
     return this
   }
 
-  off<K extends keyof UppyEventMap<TMeta>>(
+  off<K extends keyof UppyEventMap<M>>(
     event: K,
-    callback: UppyEventMap<TMeta>[K],
+    callback: UppyEventMap<M>[K],
   ): this {
     this.#emitter.off(event, callback)
     return this
@@ -366,7 +356,7 @@ export class Uppy<
   }
 
   patchFilesState(filesWithNewState: {
-    [id: string]: Partial<UppyFile<TMeta, TBody>>
+    [id: string]: Partial<UppyFile>
   }): void {
     const existingFilesState = this.getState().files
 
@@ -389,7 +379,7 @@ export class Uppy<
   /**
    * Shorthand to set state for a specific file.
    */
-  setFileState(fileID: string, state: Partial<UppyFile<TMeta, TBody>>): void {
+  setFileState(fileID: string, state: Partial<UppyFile>): void {
     if (!this.getState().files[fileID]) {
       throw new Error(
         `Can’t set state for ${fileID} (the file could have been removed)`,
@@ -407,7 +397,7 @@ export class Uppy<
     this.locale = translator.locale
   }
 
-  setOptions(newOpts: Partial<UppyOptions<TMeta>>): void {
+  setOptions(newOpts: Partial<UppyOptions>): void {
     this.opts = {
       ...this.opts,
       ...newOpts,
@@ -487,7 +477,7 @@ export class Uppy<
     return this.#uploaders.delete(fn)
   }
 
-  setMeta(data: State['meta']): void {
+  setMeta(data: M): void {
     const updatedMeta = { ...this.getState().meta, ...data }
     const updatedFiles = { ...this.getState().files }
 
