@@ -6,9 +6,9 @@ export type Body = Record<string, unknown>
 
 export type InternalMetadata = { name: string; type?: string }
 
-export interface UppyFile<M = Meta, B = Body> {
+export interface UppyFile<M extends Meta, B extends Body> {
   data: Blob | File
-  error?: Error
+  error?: string | null
   extension: string
   id: string
   isPaused?: boolean

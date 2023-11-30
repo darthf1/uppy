@@ -1,8 +1,12 @@
-import { render } from 'preact'
+/* eslint-disable class-methods-use-this */
+/* eslint-disable @typescript-eslint/no-empty-function */
+import { render, type ComponentChild } from 'preact'
 import findDOMElement from '@uppy/utils/lib/findDOMElement'
 import getTextDirection from '@uppy/utils/lib/getTextDirection'
 
+import type { Body, Meta } from '@uppy/utils/lib/UppyFile'
 import BasePlugin from './BasePlugin.ts'
+import type { PluginOpts } from './BasePlugin.ts'
 
 /**
  * Defer a frequent call to the microtask queue.
@@ -35,10 +39,20 @@ function debounce(fn: { (...args: any[]): any }): {
  *
  * For plugins without an user interface, see BasePlugin.
  */
-class UIPlugin<Opts extends Record<string, unknown>> extends BasePlugin<Opts> {
-  #updateUI
+class UIPlugin<
+  Opts extends PluginOpts & { direction?: 'ltr' | 'rtl' },
+  M extends Meta,
+  B extends Body,
+> extends BasePlugin<Opts, M, B> {
+  #updateUI: (state: any) => void
 
-  getTargetPlugin(target: unknown | UIPlugin<Opts>): UIPlugin<Opts> {
+  isTargetDOMEl: boolean
+
+  el: HTMLElement | null
+
+  parent: unknown
+
+  getTargetPlugin(target: unknown): UIPlugin<any, any, any> | undefined {
     let targetPlugin
     if (typeof target === 'object' && target instanceof UIPlugin) {
       // Targeting a plugin *instance*
@@ -62,7 +76,10 @@ class UIPlugin<Opts extends Record<string, unknown>> extends BasePlugin<Opts> {
    * If it’s an object — target is a plugin, and we search `plugins`
    * for a plugin with same name and return its target.
    */
-  mount(target, plugin) {
+  mount(
+    target: HTMLElement | string,
+    plugin: UIPlugin<any, any, any>,
+  ): HTMLElement {
     const callerPluginName = plugin.id
 
     const targetElement = findDOMElement(target)
@@ -139,24 +156,34 @@ class UIPlugin<Opts extends Record<string, unknown>> extends BasePlugin<Opts> {
     throw new Error(message)
   }
 
-  update(state) {
+  /**
+   * Called when plugin is mounted, whether in DOM or into another plugin.
+   * Needed because sometimes plugins are mounted separately/after `install`,
+   * so this.el and this.parent might not be available in `install`.
+   * This is the case with @uppy/react plugins, for example.
+   */
+  render(state: Record<string, unknown>): ComponentChild {
+    throw new Error(
+      'Extend the render method to add your plugin to a DOM element',
+    )
+  }
+
+  update(state: any): void {
     if (this.el != null) {
       this.#updateUI?.(state)
     }
   }
 
-  unmount() {
+  unmount(): void {
     if (this.isTargetDOMEl) {
       this.el?.remove()
     }
     this.onUnmount()
   }
 
-  // eslint-disable-next-line class-methods-use-this
-  onMount() {}
+  onMount(): void {}
 
-  // eslint-disable-next-line class-methods-use-this
-  onUnmount() {}
+  onUnmount(): void {}
 }
 
 export default UIPlugin

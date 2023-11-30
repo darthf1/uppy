@@ -16,7 +16,7 @@ export type I18n = Translator['translate']
 type Options = {
   smart_count?: number
 } & {
-  [key: string]: string | number
+  [key: string]: string | number | undefined
 }
 
 function insertReplacement(

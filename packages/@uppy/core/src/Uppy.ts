@@ -38,15 +38,35 @@ type LogLevel = 'info' | 'warning' | 'error'
 
 type UploadHandler = (fileIDs: string[]) => Promise<void>
 
-interface State<M extends Meta = Meta, B extends Body = Body>
+type UnknownPlugin = BasePlugin<any, any, any> | UIPlugin<any, any, any>
+
+interface UploadResult<M extends Meta, B extends Body> {
+  successful: UppyFile<M, B>[]
+  failed: UppyFile<M, B>[]
+  uploadID?: string
+}
+
+interface CurrentUpload<M extends Meta, B extends Body> {
+  fileIDs: string[]
+  step: number
+  result: UploadResult<M, B>
+}
+
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
+interface Plugins {}
+
+interface State<M extends Meta, B extends Body>
   extends Record<string, unknown> {
+  meta: M
   capabilities: {
     uploadProgress: boolean
     individualCancellation: boolean
     resumableUploads: boolean
   }
-  currentUploads: Record<string, unknown>
-  error?: string | null
+  currentUploads: Record<string, CurrentUpload<M, B>>
+  allowNewUpload: boolean
+  recoveredState: null
+  error: string | null
   files: {
     [key: string]: UppyFile<M, B>
   }
@@ -56,11 +76,11 @@ interface State<M extends Meta = Meta, B extends Body = Body>
     message: string
     details: string | null
   }>
-  plugins?: Record<string, unknown>
+  plugins: Plugins
   totalProgress: number
 }
 
-export interface UppyOptions<M extends Meta = Meta, B extends Body = Body> {
+export interface UppyOptions<M extends Meta, B extends Body> {
   id?: string
   autoProceed?: boolean
   /**
@@ -73,102 +93,92 @@ export interface UppyOptions<M extends Meta = Meta, B extends Body = Body> {
   restrictions?: Restrictions
   meta?: M
   onBeforeFileAdded?: (
-    currentFile: UppyFile<M>,
-    files: { [key: string]: UppyFile<M> },
-  ) => UppyFile<M> | boolean | undefined
+    currentFile: UppyFile<M, B>,
+    files: { [key: string]: UppyFile<M, B> },
+  ) => UppyFile<M, B> | boolean | undefined
   onBeforeUpload?: (files: {
-    [key: string]: UppyFile<M>
-  }) => { [key: string]: UppyFile<M> } | boolean
+    [key: string]: UppyFile<M, B>
+  }) => { [key: string]: UppyFile<M, B> } | boolean
   locale?: Locale
   store?: InstanceType<typeof DefaultStore<State<M, B>>>
   infoTimeout?: number
 }
 
-export type NonNullableUppyOptions<
-  M extends Meta = Meta,
-  B extends Body = Body,
-> = Required<UppyOptions<M, B>>
-
-interface UploadResult<M extends Meta = Meta, B extends Body = Body> {
-  successful: UppyFile<M, B>[]
-  failed: UppyFile<M, B>[]
-}
-
-interface ErrorResponse {
-  status: number
-  body: any
-}
-
-interface SuccessResponse {
-  uploadURL?: string
-  status?: number
-  body?: any
-  bytesUploaded?: number
-}
+export type NonNullableUppyOptions<M extends Meta, B extends Body> = Required<
+  UppyOptions<M, B>
+>
 
 type GenericEventCallback = () => void
-type FileAddedCallback<M extends Meta> = (file: UppyFile<M>) => void
-type FilesAddedCallback<M extends Meta> = (files: UppyFile<M>[]) => void
-type FileRemovedCallback<M extends Meta> = (
-  file: UppyFile<M>,
+type FileAddedCallback<M extends Meta, B extends Body> = (
+  file: UppyFile<M, B>,
+) => void
+type FilesAddedCallback<M extends Meta, B extends Body> = (
+  files: UppyFile<M, B>[],
+) => void
+type FileRemovedCallback<M extends Meta, B extends Body> = (
+  file: UppyFile<M, B>,
   reason: FileRemoveReason,
 ) => void
 type UploadCallback = (data: { id: string; fileIDs: string[] }) => void
 type ProgressCallback = (progress: number) => void
-type PreProcessCompleteCallback<M extends Meta> = (
-  file: UppyFile<M> | undefined,
+type PreProcessCompleteCallback<M extends Meta, B extends Body> = (
+  file: UppyFile<M, B> | undefined,
 ) => void
-type UploadPauseCallback = (
-  fileID: UppyFile['id'] | undefined,
+type UploadPauseCallback<M extends Meta, B extends Body> = (
+  fileID: UppyFile<M, B>['id'] | undefined,
   isPaused: boolean,
 ) => void
-type UploadProgressCallback<M extends Meta> = (
-  file: UppyFile<M> | undefined,
+type UploadProgressCallback<M extends Meta, B extends Body> = (
+  file: UppyFile<M, B> | undefined,
   progress: FileProgress,
 ) => void
-type UploadSuccessCallback<M extends Meta> = (
-  file: UppyFile<M> | undefined,
-  response: SuccessResponse,
+type UploadSuccessCallback<M extends Meta, B extends Body> = (
+  file: UppyFile<M, B> | undefined,
+  response: UppyFile<M, B>['response'] | undefined,
 ) => void
-type UploadCompleteCallback<M extends Meta> = (
-  result: UploadResult<M, Record<string, unknown>>,
+type UploadCompleteCallback<M extends Meta, B extends Body> = (
+  result: UploadResult<M, B>,
 ) => void
-type ErrorCallback = (error: Error) => void
-type UploadErrorCallback<M extends Meta> = (
-  file: UppyFile<M> | undefined,
-  error: Error,
-  response?: ErrorResponse,
+type ErrorCallback<M extends Meta, B extends Body> = (
+  error: { message?: string; details?: string },
+  file: UppyFile<M, B> | undefined,
+  response: UppyFile<M, B>['response'] | undefined,
+) => void
+type UploadErrorCallback<M extends Meta, B extends Body> = (
+  file: UppyFile<M, B> | undefined,
+  error: { message?: string; details?: string },
+  response: UppyFile<M, B>['response'] | undefined,
 ) => void
 type UploadRetryCallback = (fileID: string) => void
 type PauseAllCallback = (fileIDs: string[]) => void
 type ResumeAllCallback = (fileIDs: string[]) => void
 type RetryAllCallback = (fileIDs: string[]) => void
-type RestrictionFailedCallback<M extends Meta> = (
-  file: UppyFile<M> | undefined,
+type RestrictionFailedCallback<M extends Meta, B extends Body> = (
+  file: UppyFile<M, B> | undefined,
   error: Error,
 ) => void
 
-interface UppyEventMap<M extends Meta> {
+interface UppyEventMap<M extends Meta, B extends Body> {
   'cancel-all': GenericEventCallback
-  complete: UploadCompleteCallback<M>
-  error: ErrorCallback
-  'file-added': FileAddedCallback<M>
-  'file-removed': FileRemovedCallback<M>
-  'files-added': FilesAddedCallback<M>
+  complete: UploadCompleteCallback<M, B>
+  error: ErrorCallback<M, B>
+  'file-added': FileAddedCallback<M, B>
+  'file-removed': FileRemovedCallback<M, B>
+  'files-added': FilesAddedCallback<M, B>
   'info-hidden': GenericEventCallback
   'info-visible': GenericEventCallback
   'pause-all': PauseAllCallback
-  'preprocess-complete': PreProcessCompleteCallback<M>
+  'preprocess-complete': PreProcessCompleteCallback<M, B>
   progress: ProgressCallback
   'reset-progress': GenericEventCallback
   'resume-all': ResumeAllCallback
-  'restriction-failed': RestrictionFailedCallback<M>
+  'restriction-failed': RestrictionFailedCallback<M, B>
   'retry-all': RetryAllCallback
-  'upload-error': UploadErrorCallback<M>
-  'upload-pause': UploadPauseCallback
-  'upload-progress': UploadProgressCallback<M>
+  'upload-error': UploadErrorCallback<M, B>
+  'upload-pause': UploadPauseCallback<M, B>
+  'upload-progress': UploadProgressCallback<M, B>
   'upload-retry': UploadRetryCallback
-  'upload-success': UploadSuccessCallback<M>
+  'upload-success': UploadSuccessCallback<M, B>
   upload: UploadCallback
 }
 
@@ -184,11 +194,10 @@ const defaultUploadState = {
  * Manages plugins, state updates, acts as an event bus,
  * adds/removes files and metadata.
  */
-export class Uppy<M extends Meta = Meta, B extends Body = Body> {
+export class Uppy<M extends Meta, B extends Body> {
   static VERSION = packageJson.version
 
-  #plugins: Record<string, UIPlugin<Record<string, unknown>>[]> =
-    Object.create(null)
+  #plugins: NonNullable<State<M, B>['plugins']> = Object.create(null)
 
   #restricter
 
@@ -208,9 +217,9 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
 
   // The user optionally passes in options, but we set defaults for missing options.
   // We consider all options present after the contructor has run.
-  opts: NonNullableUppyOptions
+  opts: NonNullableUppyOptions<M, B>
 
-  store: NonNullableUppyOptions['store']
+  store: NonNullableUppyOptions<M, B>['store']
 
   i18n: I18n
 
@@ -226,7 +235,7 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
   constructor(opts: UppyOptions<M, B>) {
     this.defaultLocale = locale
 
-    const defaultOptions: UppyOptions = {
+    const defaultOptions: UppyOptions<Record<string, unknown>, B> = {
       id: 'uppy',
       autoProceed: false,
       allowMultipleUploadBatches: true,
@@ -241,7 +250,7 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
     }
 
     const merged = { ...defaultOptions, ...opts } as Omit<
-      NonNullableUppyOptions,
+      NonNullableUppyOptions<M, B>,
       'restrictions'
     >
     // Merge default options with the ones set by user,
@@ -306,25 +315,25 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
     this.#emitter.emit(event, ...args)
   }
 
-  on<K extends keyof UppyEventMap<M>>(
+  on<K extends keyof UppyEventMap<M, B>>(
     event: K,
-    callback: UppyEventMap<M>[K],
+    callback: UppyEventMap<M, B>[K],
   ): this {
     this.#emitter.on(event, callback)
     return this
   }
 
-  once<K extends keyof UppyEventMap<M>>(
+  once<K extends keyof UppyEventMap<M, B>>(
     event: K,
-    callback: UppyEventMap<M>[K],
+    callback: UppyEventMap<M, B>[K],
   ): this {
     this.#emitter.once(event, callback)
     return this
   }
 
-  off<K extends keyof UppyEventMap<M>>(
+  off<K extends keyof UppyEventMap<M, B>>(
     event: K,
-    callback: UppyEventMap<M>[K],
+    callback: UppyEventMap<M, B>[K],
   ): this {
     this.#emitter.off(event, callback)
     return this
@@ -335,8 +344,8 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
    * Called each time state changes.
    *
    */
-  updateAll(state: Partial<State>): void {
-    this.iteratePlugins((plugin: BasePlugin<any> | UIPlugin<any>) => {
+  updateAll(state: Partial<State<M, B>>): void {
+    this.iteratePlugins((plugin: UnknownPlugin) => {
       plugin.update(state)
     })
   }
@@ -344,19 +353,19 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
   /**
    * Updates state with a patch
    */
-  setState(patch?: Partial<State>): void {
+  setState(patch?: Partial<State<M, B>>): void {
     this.store.setState(patch)
   }
 
   /**
    * Returns current state.
    */
-  getState(): State {
+  getState(): State<M, B> {
     return this.store.getState()
   }
 
   patchFilesState(filesWithNewState: {
-    [id: string]: Partial<UppyFile>
+    [id: string]: Partial<UppyFile<M, B>>
   }): void {
     const existingFilesState = this.getState().files
 
@@ -379,7 +388,7 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
   /**
    * Shorthand to set state for a specific file.
    */
-  setFileState(fileID: string, state: Partial<UppyFile>): void {
+  setFileState(fileID: string, state: Partial<UppyFile<M, B>>): void {
     if (!this.getState().files[fileID]) {
       throw new Error(
         `Can’t set state for ${fileID} (the file could have been removed)`,
@@ -397,7 +406,7 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
     this.locale = translator.locale
   }
 
-  setOptions(newOpts: Partial<UppyOptions>): void {
+  setOptions(newOpts: Partial<UppyOptions<M, B>>): void {
     this.opts = {
       ...this.opts,
       ...newOpts,
@@ -432,7 +441,7 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
       uploadStarted: 0,
     }
     const files = { ...this.getState().files }
-    const updatedFiles: State['files'] = {}
+    const updatedFiles: State<M, B>['files'] = {}
 
     Object.keys(files).forEach((fileID) => {
       updatedFiles[fileID] = {
@@ -497,7 +506,7 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
     })
   }
 
-  setFileMeta(fileID: string, data: State['meta']): void {
+  setFileMeta(fileID: string, data: State<M, B>['meta']): void {
     const updatedFiles = { ...this.getState().files }
     if (!updatedFiles[fileID]) {
       this.log(
@@ -514,33 +523,33 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
   /**
    * Get a file object.
    */
-  getFile(fileID: string): UppyFile {
+  getFile(fileID: string): UppyFile<M, B> {
     return this.getState().files[fileID]
   }
 
   /**
    * Get all files in an array.
    */
-  getFiles(): UppyFile[] {
+  getFiles(): UppyFile<M, B>[] {
     const { files } = this.getState()
     return Object.values(files)
   }
 
-  getFilesByIds(ids: string[]): UppyFile[] {
+  getFilesByIds(ids: string[]): UppyFile<M, B>[] {
     return ids.map((id) => this.getFile(id))
   }
 
   // TODO: remove or refactor this method. It's very inefficient
   getObjectOfFilesPerState(): {
-    newFiles: UppyFile[]
-    startedFiles: UppyFile[]
-    uploadStartedFiles: UppyFile[]
-    pausedFiles: UppyFile[]
-    completeFiles: UppyFile[]
-    erroredFiles: UppyFile[]
-    inProgressFiles: UppyFile[]
-    inProgressNotPausedFiles: UppyFile[]
-    processingFiles: UppyFile[]
+    newFiles: UppyFile<M, B>[]
+    startedFiles: UppyFile<M, B>[]
+    uploadStartedFiles: UppyFile<M, B>[]
+    pausedFiles: UppyFile<M, B>[]
+    completeFiles: UppyFile<M, B>[]
+    erroredFiles: UppyFile<M, B>[]
+    inProgressFiles: UppyFile<M, B>[]
+    inProgressNotPausedFiles: UppyFile<M, B>[]
+    processingFiles: UppyFile<M, B>[]
     isUploadStarted: boolean
     isAllComplete: boolean
     isAllErrored: boolean
@@ -604,7 +613,7 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
       isUserFacing: boolean
       details?: string
       isRestriction?: boolean
-      file?: UppyFile
+      file?: UppyFile<M, B>
     }[],
   ): void {
     for (const error of errors) {
@@ -635,7 +644,7 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
     }
   }
 
-  validateRestrictions(file: UppyFile, files = this.getFiles()): null {
+  validateRestrictions(file: UppyFile<M, B>, files = this.getFiles()): null {
     try {
       this.#restricter.validate(files, [file])
     } catch (err) {
@@ -644,7 +653,7 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
     return null
   }
 
-  #checkRequiredMetaFieldsOnFile(file: UppyFile): boolean {
+  #checkRequiredMetaFieldsOnFile(file: UppyFile<M, B>): boolean {
     const { missingFields, error } =
       this.#restricter.getMissingRequiredMetaFields(file)
 
@@ -657,7 +666,7 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
     return true
   }
 
-  #checkRequiredMetaFields(files: State['files']): boolean {
+  #checkRequiredMetaFields(files: State<M, B>['files']): boolean {
     let success = true
     for (const file of Object.values(files)) {
       if (!this.#checkRequiredMetaFieldsOnFile(file)) {
@@ -667,7 +676,7 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
     return success
   }
 
-  #assertNewUploadAllowed(file: UppyFile): void {
+  #assertNewUploadAllowed(file?: UppyFile<M, B>): void {
     const { allowNewUpload } = this.getState()
 
     if (allowNewUpload === false) {
@@ -691,7 +700,7 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
   /**
    * Create a file state object based on user-provided `addFile()` options.
    */
-  #transformFile(fileDescriptorOrFile: File | UppyFile): UppyFile {
+  #transformFile(fileDescriptorOrFile: File | UppyFile<M, B>): UppyFile<M, B> {
     // Uppy expects files in { name, type, size, data } format.
     // If the actual File object is passed from input[type=file] or drag-drop,
     // we normalize it to match Uppy file object
@@ -704,7 +713,7 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
             data: fileDescriptorOrFile,
           }
         : fileDescriptorOrFile
-    ) as UppyFile
+    ) as UppyFile<M, B>
 
     const fileType = getFileType(file)
     const fileName = getFileName(fileType, file)
@@ -759,10 +768,10 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
     }
   }
 
-  #checkAndUpdateFileState(filesToAdd: UppyFile[]): {
-    nextFilesState: State['files']
-    validFilesToAdd: UppyFile[]
-    errors: unknown[]
+  #checkAndUpdateFileState(filesToAdd: UppyFile<M, B>[]): {
+    nextFilesState: State<M, B>['files']
+    validFilesToAdd: UppyFile<M, B>[]
+    errors: RestrictionError[]
   } {
     const { files: existingFiles } = this.getState()
 
@@ -860,11 +869,8 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
    * Add a new file to `state.files`. This will run `onBeforeFileAdded`,
    * try to guess file type in a clever way, check file against restrictions,
    * and start an upload if `autoProceed === true`.
-   *
-   * @param {object} file object to add
-   * @returns {string} id for the added file
    */
-  addFile(file) {
+  addFile(file: UppyFile<M, B>): UppyFile<M, B>['id'] {
     this.#assertNewUploadAllowed(file)
 
     const { nextFilesState, validFilesToAdd, errors } =
@@ -897,7 +903,7 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
    * This is good for UI plugins, but not for programmatic use.
    * Programmatic users should usually still use `addFile()` on individual files.
    */
-  addFiles(fileDescriptors) {
+  addFiles(fileDescriptors: UppyFile<M, B>[]): void {
     this.#assertNewUploadAllowed()
 
     const { nextFilesState, validFilesToAdd, errors } =
@@ -929,6 +935,7 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
         throw new AggregateError(nonRestrictionErrors, message)
       } else {
         const err = new Error(message)
+        // @ts-expect-error fallback when AggregateError is not available
         err.errors = nonRestrictionErrors
         throw err
       }
@@ -959,7 +966,7 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
     }
   }
 
-  removeFiles(fileIDs, reason) {
+  removeFiles(fileIDs: string[], reason?: string): void {
     const { files, currentUploads } = this.getState()
     const updatedFiles = { ...files }
     const updatedUploads = { ...currentUploads }
@@ -973,7 +980,7 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
     })
 
     // Remove files from the `fileIDs` list in each upload.
-    function fileIsNotRemoved(uploadFileID) {
+    function fileIsNotRemoved(uploadFileID: string): boolean {
       return removedFiles[uploadFileID] === undefined
     }
 
@@ -1001,7 +1008,7 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
       }
     })
 
-    const stateUpdate = {
+    const stateUpdate: Partial<State<M, B>> = {
       currentUploads: updatedUploads,
       files: updatedFiles,
     }
@@ -1029,14 +1036,14 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
     }
   }
 
-  removeFile(fileID, reason = null) {
+  removeFile(fileID: string, reason?: string): void {
     this.removeFiles([fileID], reason)
   }
 
-  pauseResume(fileID) {
+  pauseResume(fileID: string): boolean | undefined {
     if (
       !this.getState().capabilities.resumableUploads ||
-      this.getFile(fileID).uploadComplete
+      this.getFile(fileID).progress.uploadComplete
     ) {
       return undefined
     }
@@ -1053,7 +1060,7 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
     return isPaused
   }
 
-  pauseAll() {
+  pauseAll(): void {
     const updatedFiles = { ...this.getState().files }
     const inProgressUpdatedFiles = Object.keys(updatedFiles).filter((file) => {
       return (
@@ -1071,7 +1078,7 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
     this.emit('pause-all')
   }
 
-  resumeAll() {
+  resumeAll(): void {
     const updatedFiles = { ...this.getState().files }
     const inProgressUpdatedFiles = Object.keys(updatedFiles).filter((file) => {
       return (
@@ -1093,7 +1100,7 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
     this.emit('resume-all')
   }
 
-  retryAll() {
+  retryAll(): Promise<UploadResult<M, B> | undefined> {
     const updatedFiles = { ...this.getState().files }
     const filesToRetry = Object.keys(updatedFiles).filter((file) => {
       return updatedFiles[file].error
@@ -1127,7 +1134,7 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
     return this.#runUpload(uploadID)
   }
 
-  cancelAll({ reason = 'user' } = {}) {
+  cancelAll({ reason = 'user' } = {}): void {
     this.emit('cancel-all', { reason })
 
     // Only remove existing uploads if user is canceling
@@ -1144,7 +1151,7 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
     }
   }
 
-  retryUpload(fileID) {
+  retryUpload(fileID: string): Promise<UploadResult<M, B> | undefined> {
     this.setFileState(fileID, {
       error: null,
       isPaused: false,
@@ -1158,7 +1165,7 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
     return this.#runUpload(uploadID)
   }
 
-  logout() {
+  logout(): void {
     this.iteratePlugins((plugin) => {
       if (plugin.provider && plugin.provider.logout) {
         plugin.provider.logout()
@@ -1210,7 +1217,7 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
     { leading: true, trailing: true },
   )
 
-  calculateTotalProgress() {
+  calculateTotalProgress(): void {
     // calculate total progress, using the number of files currently uploading,
     // multiplied by 100 and the summ of individual progress of each file
     const files = this.getFiles()
@@ -1247,7 +1254,7 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
     }
 
     let totalSize = sizedFiles.reduce((acc, file) => {
-      return acc + file.progress.bytesTotal
+      return (acc + (file.progress.bytesTotal ?? 0)) as number
     }, 0)
     const averageSize = totalSize / sizedFiles.length
     totalSize += averageSize * unsizedFiles.length
@@ -1277,13 +1284,13 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
    * Registers listeners for all global actions, like:
    * `error`, `file-removed`, `upload-progress`
    */
-  #addListeners() {
-    /**
-     * @param {Error} error
-     * @param {object} [file]
-     * @param {object} [response]
-     */
-    const errorHandler = (error, file, response) => {
+  #addListeners(): void {
+    // Type inference only works for inline functions so we have to type it again
+    const errorHandler: UppyEventMap<M, B>['error'] = (
+      error,
+      file,
+      response,
+    ) => {
       let errorMsg = error.message || 'Unknown error'
       if (error.details) {
         errorMsg += ` ${error.details}`
@@ -1530,7 +1537,7 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
    * @returns {object} self for chaining
    */
   // eslint-disable-next-line no-shadow
-  use(Plugin, opts) {
+  use(Plugin: typeof BasePlugin | typeof UIPlugin, opts) {
     if (typeof Plugin !== 'function') {
       const msg =
         `Expected a plugin class, but got ${
@@ -1780,11 +1787,8 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
 
   /**
    * Add data to an upload's result object.
-   *
-   * @param {string} uploadID The ID of the upload.
-   * @param {object} data Data properties to add to the result object.
    */
-  addResultData(uploadID, data) {
+  addResultData(uploadID: string, data: CurrentUpload<M, B>['result']): void {
     if (!this.#getUpload(uploadID)) {
       this.log(
         `Not setting result for an upload that has been removed: ${uploadID}`,
@@ -1820,8 +1824,8 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
    *
    * @private
    */
-  async #runUpload(uploadID) {
-    const getCurrentUpload = () => {
+  async #runUpload(uploadID: string): Promise<UploadResult<M, B> | undefined> {
+    const getCurrentUpload = (): CurrentUpload<M, B> => {
       const { currentUploads } = this.getState()
       return currentUploads[uploadID]
     }
@@ -1886,7 +1890,7 @@ export class Uppy<M extends Meta = Meta, B extends Body = Body> {
       const files = currentUpload.fileIDs.map((fileID) => this.getFile(fileID))
       const successful = files.filter((file) => !file.error)
       const failed = files.filter((file) => file.error)
-      await this.addResultData(uploadID, { successful, failed, uploadID })
+      this.addResultData(uploadID, { successful, failed, uploadID })
 
       // Update currentUpload value in case it was modified asynchronously.
       currentUpload = getCurrentUpload()

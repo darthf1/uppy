@@ -1,3 +1,4 @@
+/* eslint-disable class-methods-use-this */
 /* eslint-disable @typescript-eslint/no-empty-function */
 
 /**
@@ -11,10 +12,17 @@
 
 import Translator from '@uppy/utils/lib/Translator'
 import type { I18n, Locale } from '@uppy/utils/lib/Translator'
+import type { Body, Meta } from '@uppy/utils/lib/UppyFile'
 import type { Uppy } from '.'
 
-export default class BasePlugin<Opts extends Record<string, unknown>> {
-  uppy: Uppy
+export type PluginOpts = { locale?: Locale; [key: string]: unknown }
+
+export default class BasePlugin<
+  Opts extends PluginOpts,
+  M extends Meta,
+  B extends Body,
+> {
+  uppy: Uppy<M, B>
 
   opts: Opts
 
@@ -26,14 +34,14 @@ export default class BasePlugin<Opts extends Record<string, unknown>> {
 
   i18nArray: Translator['translateArray']
 
-  constructor(uppy: Uppy, opts: Opts) {
+  constructor(uppy: Uppy<M, B>, opts: Opts) {
     this.uppy = uppy
     this.opts = opts ?? {}
   }
 
-  getPluginState<T extends Record<string, unknown>>(): T {
+  getPluginState(): Record<string, unknown> {
     const { plugins } = this.uppy.getState()
-    return plugins[this.id] || {}
+    return plugins?.[this.id] || {}
   }
 
   setPluginState(update: unknown): void {
@@ -72,35 +80,20 @@ export default class BasePlugin<Opts extends Record<string, unknown>> {
    * making them not conditional in use, such as `if (this.afterUpdate)`.
    */
 
-  // eslint-disable-next-line class-methods-use-this
-  addTarget(): void {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  addTarget(plugin: unknown): HTMLElement {
     throw new Error(
       "Extend the addTarget method to add your plugin to another plugin's target",
     )
   }
 
-  // eslint-disable-next-line class-methods-use-this
   install(): void {}
 
-  // eslint-disable-next-line class-methods-use-this
   uninstall(): void {}
 
-  /**
-   * Called when plugin is mounted, whether in DOM or into another plugin.
-   * Needed because sometimes plugins are mounted separately/after `install`,
-   * so this.el and this.parent might not be available in `install`.
-   * This is the case with @uppy/react plugins, for example.
-   */
-  render(): void {
-    throw new Error(
-      'Extend the render method to add your plugin to a DOM element',
-    )
-  }
-
-  // eslint-disable-next-line class-methods-use-this
-  update(): void {}
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  update(state: any): void {}
 
   // Called after every state update, after everything's mounted. Debounced.
-  // eslint-disable-next-line class-methods-use-this
   afterUpdate(): void {}
 }
