@@ -6,17 +6,17 @@ import type {
   GenericEventCallback,
   // @ts-expect-error @uppy/core has not been typed yet
 } from '@uppy/core'
-import type { UppyFile } from './UppyFile'
+import type { Meta, Body, UppyFile } from './UppyFile'
 /**
  * Create a wrapper around an event emitter with a `remove` method to remove
  * all events that were added using the wrapped emitter.
  */
-export default class EventManager {
-  #uppy: Uppy
+export default class EventManager<M extends Meta, B extends Body> {
+  #uppy: Uppy<M, B>
 
   #events: Array<Parameters<typeof Uppy.prototype.on>> = []
 
-  constructor(uppy: Uppy) {
+  constructor(uppy: Uppy<M, B>) {
     this.#uppy = uppy
   }
 
@@ -34,7 +34,10 @@ export default class EventManager {
     }
   }
 
-  onFilePause(fileID: UppyFile['id'], cb: (isPaused: boolean) => void): void {
+  onFilePause(
+    fileID: UppyFile<M, B>['id'],
+    cb: (isPaused: boolean) => void,
+  ): void {
     this.on(
       'upload-pause',
       (
@@ -50,8 +53,8 @@ export default class EventManager {
   }
 
   onFileRemove(
-    fileID: UppyFile['id'],
-    cb: (isPaused: UppyFile['id']) => void,
+    fileID: UppyFile<M, B>['id'],
+    cb: (isPaused: UppyFile<M, B>['id']) => void,
   ): void {
     this.on('file-removed', (file: Parameters<FileRemovedCallback<any>>[0]) => {
       // @ts-expect-error @uppy/core has not been typed yet
@@ -59,7 +62,7 @@ export default class EventManager {
     })
   }
 
-  onPause(fileID: UppyFile['id'], cb: (isPaused: boolean) => void): void {
+  onPause(fileID: UppyFile<M, B>['id'], cb: (isPaused: boolean) => void): void {
     this.on(
       'upload-pause',
       (
@@ -75,7 +78,7 @@ export default class EventManager {
     )
   }
 
-  onRetry(fileID: UppyFile['id'], cb: () => void): void {
+  onRetry(fileID: UppyFile<M, B>['id'], cb: () => void): void {
     this.on(
       'upload-retry',
       (targetFileID: Parameters<UploadRetryCallback>[0]) => {
@@ -86,14 +89,14 @@ export default class EventManager {
     )
   }
 
-  onRetryAll(fileID: UppyFile['id'], cb: () => void): void {
+  onRetryAll(fileID: UppyFile<M, B>['id'], cb: () => void): void {
     this.on('retry-all', () => {
       if (!this.#uppy.getFile(fileID)) return
       cb()
     })
   }
 
-  onPauseAll(fileID: UppyFile['id'], cb: () => void): void {
+  onPauseAll(fileID: UppyFile<M, B>['id'], cb: () => void): void {
     this.on('pause-all', () => {
       if (!this.#uppy.getFile(fileID)) return
       cb()
@@ -101,7 +104,7 @@ export default class EventManager {
   }
 
   onCancelAll(
-    fileID: UppyFile['id'],
+    fileID: UppyFile<M, B>['id'],
     eventHandler: GenericEventCallback,
   ): void {
     this.on('cancel-all', (...args: Parameters<GenericEventCallback>) => {
@@ -110,7 +113,7 @@ export default class EventManager {
     })
   }
 
-  onResumeAll(fileID: UppyFile['id'], cb: () => void): void {
+  onResumeAll(fileID: UppyFile<M, B>['id'], cb: () => void): void {
     this.on('resume-all', () => {
       if (!this.#uppy.getFile(fileID)) return
       cb()

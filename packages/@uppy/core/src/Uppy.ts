@@ -280,8 +280,8 @@ export class Uppy<M extends Meta, B extends Body> {
     this.opts = {
       ...merged,
       restrictions: {
-        ...defaultOptions.restrictions,
-        ...(opts && (opts.restrictions as Restrictions)),
+        ...(defaultOptions.restrictions as Restrictions),
+        ...(opts && opts.restrictions),
       },
     }
 
