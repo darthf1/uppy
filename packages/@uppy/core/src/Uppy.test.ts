@@ -516,7 +516,7 @@ describe('src/Core', () => {
   describe('preprocessors', () => {
     it('should add and remove preprocessor', () => {
       const core = new Core()
-      const preprocessor = () => {}
+      const preprocessor = Function.prototype
       expect(core.removePreProcessor(preprocessor)).toBe(false)
       core.addPreProcessor(preprocessor)
       expect(core.removePreProcessor(preprocessor)).toBe(true)
@@ -635,7 +635,7 @@ describe('src/Core', () => {
   describe('postprocessors', () => {
     it('should add and remove postprocessor', () => {
       const core = new Core()
-      const postprocessor = () => {}
+      const postprocessor = Function.prototype
       expect(core.removePostProcessor(postprocessor)).toBe(false)
       core.addPostProcessor(postprocessor)
       expect(core.removePostProcessor(postprocessor)).toBe(true)
@@ -752,7 +752,7 @@ describe('src/Core', () => {
   describe('uploaders', () => {
     it('should add and remove uploader', () => {
       const core = new Core()
-      const uploader = () => {}
+      const uploader = Function.prototype
       expect(core.removeUploader(uploader)).toBe(false)
       core.addUploader(uploader)
       expect(core.removeUploader(uploader)).toBe(true)
@@ -1326,9 +1326,9 @@ describe('src/Core', () => {
   })
 
   describe('restoring a file', () => {
-    it.skip('should restore a file', () => {})
+    it.skip('should restore a file')
 
-    it.skip("should fail to restore a file if it doesn't exist", () => {})
+    it.skip("should fail to restore a file if it doesn't exist")
   })
 
   describe('get a file', () => {
@@ -1861,7 +1861,7 @@ describe('src/Core', () => {
       }).not.toThrowError()
     })
 
-    it.skip('should enforce the minNumberOfFiles rule', () => {})
+    it.skip('should enforce the minNumberOfFiles rule')
 
     it('should enforce the allowedFileTypes rule', () => {
       const core = new Core({
