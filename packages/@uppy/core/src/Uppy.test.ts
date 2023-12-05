@@ -2291,6 +2291,8 @@ describe('src/Core', () => {
         data: new File([sampleImage], { type: 'image/jpeg' }),
       })
 
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore accessing private field
       core[Symbol.for('uppy test: createUpload')](
         Object.keys(core.getState().files),
       )
@@ -2312,6 +2314,7 @@ describe('src/Core', () => {
           strings: {
             test: 'beep boop',
           },
+          pluralize: () => 0,
         },
       })
 

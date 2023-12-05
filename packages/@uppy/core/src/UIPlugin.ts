@@ -163,6 +163,7 @@ class UIPlugin<
    * This is the case with @uppy/react plugins, for example.
    */
   render(state: Record<string, unknown>): ComponentChild {
+    // eslint-disable-line @typescript-eslint/no-unused-vars
     throw new Error(
       'Extend the render method to add your plugin to a DOM element',
     )

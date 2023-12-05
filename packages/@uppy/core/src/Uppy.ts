@@ -2,7 +2,6 @@
 /* global AggregateError */
 
 import Translator from '@uppy/utils/lib/Translator'
-// @ts-expect-error untyped
 import ee from 'namespace-emitter'
 import { nanoid } from 'nanoid/non-secure'
 import throttle from 'lodash/throttle.js'
@@ -327,7 +326,6 @@ export class Uppy<M extends Meta, B extends Body> {
 
     // Exposing uppy object on window for debugging and testing
     if (this.opts.debug && typeof window !== 'undefined') {
-      // @ts-expect-error string as index type is fine
       window[this.opts.id] = this
     }
 
@@ -1624,7 +1622,9 @@ export class Uppy<M extends Meta, B extends Body> {
     return undefined
   }
 
-  [Symbol.for('uppy test: getPlugins')](type: string): UnknownPlugin<M, B>[] {
+  private [Symbol.for('uppy test: getPlugins')](
+    type: string,
+  ): UnknownPlugin<M, B>[] {
     return this.#plugins[type]
   }
 
@@ -1799,9 +1799,8 @@ export class Uppy<M extends Meta, B extends Body> {
     return uploadID
   }
 
-  // @ts-expect-error same type as createUpload
-  [Symbol.for('uppy test: createUpload')](...args): string {
-    // @ts-expect-error same type as createUpload
+  private [Symbol.for('uppy test: createUpload')](...args): string {
+    // @ts-expect-error https://github.com/microsoft/TypeScript/issues/47595
     return this.#createUpload(...args)
   }
 

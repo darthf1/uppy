@@ -1,7 +1,5 @@
 /* eslint-disable max-classes-per-file, class-methods-use-this */
-// @ts-expect-error untyped
 import prettierBytes from '@transloadit/prettier-bytes'
-// @ts-expect-error untyped
 import match from 'mime-match'
 import Translator from '@uppy/utils/lib/Translator'
 import type { Body, Meta, UppyFile } from '@uppy/utils/lib/UppyFile'

@@ -1,8 +1,8 @@
 import { vi } from 'vitest' // eslint-disable-line import/no-extraneous-dependencies
 import UIPlugin from '../UIPlugin.ts'
 
-export default class TestSelector1 extends UIPlugin {
-  constructor (uppy, opts) {
+export default class TestSelector1 extends UIPlugin<any, any, any> {
+  constructor(uppy, opts) {
     super(uppy, opts)
     this.type = 'acquirer'
     this.id = 'TestSelector1'
@@ -15,7 +15,7 @@ export default class TestSelector1 extends UIPlugin {
     }
   }
 
-  run (results) {
+  run(results) {
     this.uppy.log({
       class: this.constructor.name,
       method: 'run',
@@ -25,11 +25,11 @@ export default class TestSelector1 extends UIPlugin {
     return Promise.resolve('success')
   }
 
-  update (state) {
+  update(state) {
     this.mocks.update(state)
   }
 
-  uninstall () {
+  uninstall() {
     this.mocks.uninstall()
   }
 }
