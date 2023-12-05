@@ -5,9 +5,7 @@ export interface Locale<T extends number = number> {
 }
 
 export type OptionalPluralizeLocale<T extends number = number> =
-  | (Omit<Locale<T>, 'pluralize'> & {
-      pluralize?: (n: number) => T
-    })
+  | (Omit<Locale<T>, 'pluralize'> & Partial<Pick<Locale<T>, 'pluralize'>>)
   | undefined
 
 // eslint-disable-next-line no-use-before-define
@@ -16,7 +14,7 @@ export type I18n = Translator['translate']
 type Options = {
   smart_count?: number
 } & {
-  [key: string]: string | number | undefined
+  [key: string]: string | number
 }
 
 function insertReplacement(

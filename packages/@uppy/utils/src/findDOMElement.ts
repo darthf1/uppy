@@ -4,9 +4,9 @@ import isDOMElement from './isDOMElement.ts'
  * Find a DOM element.
  */
 export default function findDOMElement(
-  element: HTMLElement | string,
+  element: Node | string,
   context = document,
-): HTMLElement | null {
+): Element | null {
   if (typeof element === 'string') {
     return context.querySelector(element)
   }
