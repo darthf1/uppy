@@ -55,6 +55,7 @@ interface CurrentUpload<M extends Meta, B extends Body> {
   result: UploadResult<M, B>
 }
 
+// TODO: can we use namespaces in other plugins to populate this?
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
 interface Plugins extends Record<string, Record<string, unknown> | undefined> {}
 
@@ -460,7 +461,7 @@ export class Uppy<M extends Meta, B extends Body> {
       percentage: 0,
       bytesUploaded: 0,
       uploadComplete: false,
-      uploadStarted: 0,
+      uploadStarted: null,
     }
     const files = { ...this.getState().files }
     const updatedFiles: State<M, B>['files'] = {}
@@ -639,7 +640,7 @@ export class Uppy<M extends Meta, B extends Body> {
     }[],
   ): void {
     for (const error of errors) {
-      if (error instanceof RestrictionError) {
+      if (error.isRestriction) {
         this.emit('restriction-failed', error.file, error)
       } else {
         this.emit('error', error)
@@ -761,7 +762,6 @@ export class Uppy<M extends Meta, B extends Body> {
       type: fileType,
       data: file.data,
       progress: {
-        progress: 0,
         percentage: 0,
         bytesUploaded: 0,
         bytesTotal: size,

@@ -821,6 +821,7 @@ describe('src/Core', () => {
         name: 'foo.jpg',
         preview: undefined,
         data: fileData,
+        isGhost: false,
         progress: {
           bytesTotal: 17175,
           bytesUploaded: 0,
@@ -828,7 +829,7 @@ describe('src/Core', () => {
           uploadComplete: false,
           uploadStarted: null,
         },
-        remote: '',
+        remote: undefined,
         size: 17175,
         source: 'vi',
         type: 'image/jpeg',

@@ -1,5 +1,5 @@
 export type FileProgress = {
-  progress: number
+  progress?: number
   uploadComplete: boolean
   percentage: number
   bytesTotal: number | null
