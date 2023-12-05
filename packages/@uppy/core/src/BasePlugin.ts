@@ -34,6 +34,10 @@ export default class BasePlugin<
 
   i18nArray: Translator['translateArray']
 
+  type: string
+
+  VERSION: string
+
   constructor(uppy: Uppy<M, B>, opts: Opts) {
     this.uppy = uppy
     this.opts = opts ?? {}

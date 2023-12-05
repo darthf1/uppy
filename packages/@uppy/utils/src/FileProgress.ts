@@ -4,7 +4,7 @@ export type FileProgress = {
   percentage: number
   bytesTotal: number | null
   uploadStarted: number | null
-  bytesUploaded: number
-  preprocess?: number
-  postprocess?: number
+  bytesUploaded: number | null
+  preprocess?: { mode: string; message?: string }
+  postprocess?: { mode: string; message?: string }
 }

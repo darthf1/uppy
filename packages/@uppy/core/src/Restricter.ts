@@ -4,9 +4,9 @@ import prettierBytes from '@transloadit/prettier-bytes'
 // @ts-expect-error untyped
 import match from 'mime-match'
 import Translator from '@uppy/utils/lib/Translator'
-import type { UppyFile } from '@uppy/utils/lib/UppyFile'
+import type { Body, Meta, UppyFile } from '@uppy/utils/lib/UppyFile'
 import type { I18n } from '@uppy/utils/lib/Translator'
-import type { NonNullableUppyOptions } from './Uppy'
+import type { State, NonNullableUppyOptions } from './Uppy'
 
 export type Restrictions = {
   maxFileSize: number | null
@@ -28,14 +28,14 @@ const defaultOptions = {
   requiredMetaFields: [],
 }
 
-class RestrictionError extends Error {
+class RestrictionError<M extends Meta, B extends Body> extends Error {
   isUserFacing: boolean
 
-  file: UppyFile
+  file: UppyFile<M, B>
 
   constructor(
     message: string,
-    opts?: { isUserFacing?: boolean; file: UppyFile },
+    opts?: { isUserFacing?: boolean; file?: UppyFile<M, B> },
   ) {
     super(message)
     this.isUserFacing = opts?.isUserFacing ?? false
@@ -47,14 +47,14 @@ class RestrictionError extends Error {
   isRestriction = true
 }
 
-class Restricter {
+class Restricter<M extends Meta, B extends Body> {
   i18n: Translator['translate']
 
-  getOpts: () => NonNullableUppyOptions<any, any>
+  getOpts: () => NonNullableUppyOptions<M, B>
 
-  constructor(getOpts: () => NonNullableUppyOptions<any, any>, i18n: I18n) {
+  constructor(getOpts: () => NonNullableUppyOptions<M, B>, i18n: I18n) {
     this.i18n = i18n
-    this.getOpts = (): NonNullableUppyOptions => {
+    this.getOpts = (): NonNullableUppyOptions<M, B> => {
       const opts = getOpts()
 
       if (
@@ -69,8 +69,8 @@ class Restricter {
 
   // Because these operations are slow, we cannot run them for every file (if we are adding multiple files)
   validateAggregateRestrictions(
-    existingFiles: UppyFile[],
-    addingFiles: UppyFile[],
+    existingFiles: UppyFile<M, B>[],
+    addingFiles: UppyFile<M, B>[],
   ): void {
     const { maxTotalFileSize, maxNumberOfFiles } = this.getOpts().restrictions
 
@@ -109,7 +109,7 @@ class Restricter {
     }
   }
 
-  validateSingleFile(file: UppyFile): void {
+  validateSingleFile(file: UppyFile<M, B>): void {
     const { maxFileSize, minFileSize, allowedFileTypes } =
       this.getOpts().restrictions
 
@@ -161,14 +161,17 @@ class Restricter {
     }
   }
 
-  validate(existingFiles: UppyFile[], addingFiles: UppyFile[]): void {
+  validate(
+    existingFiles: UppyFile<M, B>[],
+    addingFiles: UppyFile<M, B>[],
+  ): void {
     addingFiles.forEach((addingFile) => {
       this.validateSingleFile(addingFile)
     })
     this.validateAggregateRestrictions(existingFiles, addingFiles)
   }
 
-  validateMinNumberOfFiles(files: UppyFile[]): void {
+  validateMinNumberOfFiles(files: State<M, B>['files']): void {
     const { minNumberOfFiles } = this.getOpts().restrictions
     if (minNumberOfFiles && Object.keys(files).length < minNumberOfFiles) {
       throw new RestrictionError(
@@ -177,7 +180,7 @@ class Restricter {
     }
   }
 
-  getMissingRequiredMetaFields(file: UppyFile): {
+  getMissingRequiredMetaFields(file: UppyFile<M, B>): {
     missingFields: string[]
     error: InstanceType<typeof RestrictionError>
   } {

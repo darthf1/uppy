@@ -29,20 +29,23 @@ import locale from './locale.ts'
 import type BasePlugin from './BasePlugin.ts'
 import type UIPlugin from './UIPlugin.ts'
 import type { Restrictions } from './Restricter.ts'
+import type { PluginOpts } from './BasePlugin.ts'
 
 type Processor = (fileIDs: string[], uploadID: string) => Promise<void>
 
 type FileRemoveReason = 'removed-by-user' | 'cancel-all'
 
-type LogLevel = 'info' | 'warning' | 'error'
+type LogLevel = 'info' | 'warning' | 'error' | 'success'
 
 type UploadHandler = (fileIDs: string[]) => Promise<void>
 
-type UnknownPlugin = BasePlugin<any, any, any> | UIPlugin<any, any, any>
+type UnknownPlugin<M extends Meta, B extends Body> = InstanceType<
+  typeof BasePlugin<any, M, B> | typeof UIPlugin<any, M, B>
+>
 
 interface UploadResult<M extends Meta, B extends Body> {
-  successful: UppyFile<M, B>[]
-  failed: UppyFile<M, B>[]
+  successful?: UppyFile<M, B>[]
+  failed?: UppyFile<M, B>[]
   uploadID?: string
 }
 
@@ -53,9 +56,9 @@ interface CurrentUpload<M extends Meta, B extends Body> {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
-interface Plugins {}
+interface Plugins extends Record<string, Record<string, unknown> | undefined> {}
 
-interface State<M extends Meta, B extends Body>
+export interface State<M extends Meta, B extends Body>
   extends Record<string, unknown> {
   meta: M
   capabilities: {
@@ -70,11 +73,11 @@ interface State<M extends Meta, B extends Body>
   files: {
     [key: string]: UppyFile<M, B>
   }
-  info?: Array<{
-    isHidden: boolean
+  info: Array<{
+    isHidden?: boolean
     type: LogLevel
     message: string
-    details: string | null
+    details?: string | null
   }>
   plugins: Plugins
   totalProgress: number
@@ -121,6 +124,14 @@ type FileRemovedCallback<M extends Meta, B extends Body> = (
 ) => void
 type UploadCallback = (data: { id: string; fileIDs: string[] }) => void
 type ProgressCallback = (progress: number) => void
+type PreProcessProgressCallback<M extends Meta, B extends Body> = (
+  file: UppyFile<M, B> | undefined,
+  progress: NonNullable<FileProgress['preprocess']>,
+) => void
+type PostProcessProgressCallback<M extends Meta, B extends Body> = (
+  file: UppyFile<M, B> | undefined,
+  progress: NonNullable<FileProgress['postprocess']>,
+) => void
 type PreProcessCompleteCallback<M extends Meta, B extends Body> = (
   file: UppyFile<M, B> | undefined,
 ) => void
@@ -134,7 +145,7 @@ type UploadProgressCallback<M extends Meta, B extends Body> = (
 ) => void
 type UploadSuccessCallback<M extends Meta, B extends Body> = (
   file: UppyFile<M, B> | undefined,
-  response: UppyFile<M, B>['response'] | undefined,
+  response: NonNullable<UppyFile<M, B>['response']>,
 ) => void
 type UploadCompleteCallback<M extends Meta, B extends Body> = (
   result: UploadResult<M, B>,
@@ -146,8 +157,12 @@ type ErrorCallback<M extends Meta, B extends Body> = (
 ) => void
 type UploadErrorCallback<M extends Meta, B extends Body> = (
   file: UppyFile<M, B> | undefined,
-  error: { message?: string; details?: string },
+  error: { message: string; details?: string },
   response: UppyFile<M, B>['response'] | undefined,
+) => void
+type UploadStalledCallback<M extends Meta, B extends Body> = (
+  error: { message: string; details?: string },
+  files: UppyFile<M, B>[],
 ) => void
 type UploadRetryCallback = (fileID: string) => void
 type PauseAllCallback = (fileIDs: string[]) => void
@@ -160,6 +175,7 @@ type RestrictionFailedCallback<M extends Meta, B extends Body> = (
 
 interface UppyEventMap<M extends Meta, B extends Body> {
   'cancel-all': GenericEventCallback
+  restored: GenericEventCallback
   complete: UploadCompleteCallback<M, B>
   error: ErrorCallback<M, B>
   'file-added': FileAddedCallback<M, B>
@@ -168,8 +184,11 @@ interface UppyEventMap<M extends Meta, B extends Body> {
   'info-hidden': GenericEventCallback
   'info-visible': GenericEventCallback
   'pause-all': PauseAllCallback
+  'preprocess-progress': PreProcessProgressCallback<M, B>
   'preprocess-complete': PreProcessCompleteCallback<M, B>
   progress: ProgressCallback
+  'postprocess-progress': PostProcessProgressCallback<M, B>
+  'postprocess-complete': PreProcessCompleteCallback<M, B>
   'reset-progress': GenericEventCallback
   'resume-all': ResumeAllCallback
   'restriction-failed': RestrictionFailedCallback<M, B>
@@ -177,6 +196,7 @@ interface UppyEventMap<M extends Meta, B extends Body> {
   'upload-error': UploadErrorCallback<M, B>
   'upload-pause': UploadPauseCallback<M, B>
   'upload-progress': UploadProgressCallback<M, B>
+  'upload-stalled': UploadStalledCallback<M, B>
   'upload-retry': UploadRetryCallback
   'upload-success': UploadSuccessCallback<M, B>
   upload: UploadCallback
@@ -197,7 +217,7 @@ const defaultUploadState = {
 export class Uppy<M extends Meta, B extends Body> {
   static VERSION = packageJson.version
 
-  #plugins: NonNullable<State<M, B>['plugins']> = Object.create(null)
+  #plugins: Record<string, UnknownPlugin<M, B>[]> = Object.create(null)
 
   #restricter
 
@@ -227,12 +247,14 @@ export class Uppy<M extends Meta, B extends Body> {
 
   scheduledAutoProceed: ReturnType<typeof setTimeout> | null = null
 
+  wasOffline = false
+
   /**
    * Instantiate Uppy
    *
    * @param {object} opts — Uppy options
    */
-  constructor(opts: UppyOptions<M, B>) {
+  constructor(opts?: UppyOptions<M, B>) {
     this.defaultLocale = locale
 
     const defaultOptions: UppyOptions<Record<string, unknown>, B> = {
@@ -293,7 +315,7 @@ export class Uppy<M extends Meta, B extends Body> {
       info: [],
     })
 
-    this.#restricter = new Restricter(() => this.opts, this.i18n)
+    this.#restricter = new Restricter<M, B>(() => this.opts, this.i18n)
 
     this.#storeUnsubscribe = this.store.subscribe(
       (prevState, nextState, patch) => {
@@ -345,7 +367,7 @@ export class Uppy<M extends Meta, B extends Body> {
    *
    */
   updateAll(state: Partial<State<M, B>>): void {
-    this.iteratePlugins((plugin: UnknownPlugin) => {
+    this.iteratePlugins((plugin: UnknownPlugin<M, B>) => {
       plugin.update(state)
     })
   }
@@ -610,7 +632,7 @@ export class Uppy<M extends Meta, B extends Body> {
   #informAndEmit(
     errors: {
       message: string
-      isUserFacing: boolean
+      isUserFacing?: boolean
       details?: string
       isRestriction?: boolean
       file?: UppyFile<M, B>
@@ -771,7 +793,7 @@ export class Uppy<M extends Meta, B extends Body> {
   #checkAndUpdateFileState(filesToAdd: UppyFile<M, B>[]): {
     nextFilesState: State<M, B>['files']
     validFilesToAdd: UppyFile<M, B>[]
-    errors: RestrictionError[]
+    errors: RestrictionError<M, B>[]
   } {
     const { files: existingFiles } = this.getState()
 
@@ -1167,7 +1189,9 @@ export class Uppy<M extends Meta, B extends Body> {
 
   logout(): void {
     this.iteratePlugins((plugin) => {
+      // @ts-expect-error untyped
       if (plugin.provider && plugin.provider.logout) {
+        // @ts-expect-error untyped
         plugin.provider.logout()
       }
     })
@@ -1261,7 +1285,7 @@ export class Uppy<M extends Meta, B extends Body> {
 
     let uploadedSize = 0
     sizedFiles.forEach((file) => {
-      uploadedSize += file.progress.bytesUploaded
+      uploadedSize += file.progress.bytesUploaded as number
     })
     unsizedFiles.forEach((file) => {
       uploadedSize += (averageSize * (file.progress.percentage || 0)) / 100
@@ -1315,7 +1339,7 @@ export class Uppy<M extends Meta, B extends Body> {
         this.log(error.message, 'error')
         const newError = new Error(
           this.i18n('failedToUpload', { file: file?.name }),
-        )
+        ) as any // we may want a new custom error here
         newError.isUserFacing = true // todo maybe don't do this with all errors?
         newError.details = error.message
         if (error.details) {
@@ -1327,7 +1351,9 @@ export class Uppy<M extends Meta, B extends Body> {
       }
     })
 
-    let uploadStalledWarningRecentlyEmitted
+    let uploadStalledWarningRecentlyEmitted: ReturnType<
+      typeof setTimeout
+    > | null = null
     this.on('upload-stalled', (error, files) => {
       const { message } = error
       const details = files.map((file) => file.meta.name).join(', ')
@@ -1344,7 +1370,7 @@ export class Uppy<M extends Meta, B extends Body> {
       this.setState({ error: null })
     })
 
-    const onUploadStarted = (files) => {
+    const onUploadStarted = (files: UppyFile<M, B>[]): void => {
       const filesFiltered = files.filter((file) => {
         const exists = file != null && this.getFile(file.id)
         if (!exists)
@@ -1359,6 +1385,7 @@ export class Uppy<M extends Meta, B extends Body> {
           file.id,
           {
             progress: {
+              progress: 0,
               uploadStarted: Date.now(),
               uploadComplete: false,
               percentage: 0,
@@ -1372,8 +1399,9 @@ export class Uppy<M extends Meta, B extends Body> {
       this.patchFilesState(filesState)
     }
 
+    // @ts-expect-error deprecated
     this.on('upload-start', (files) => {
-      files.forEach((file) => {
+      files.forEach((file: UppyFile<M, B>) => {
         // todo backward compat, remove this event in a next major
         this.emit('upload-started', file)
       })
@@ -1399,7 +1427,7 @@ export class Uppy<M extends Meta, B extends Body> {
               ? {
                   mode: 'indeterminate',
                 }
-              : null,
+              : undefined,
           uploadComplete: true,
           percentage: 100,
           bytesUploaded: currentProgress.bytesTotal,
@@ -1490,6 +1518,7 @@ export class Uppy<M extends Meta, B extends Body> {
       this.calculateTotalProgress()
     })
 
+    // @ts-expect-error should fix itself when dashboard it typed (also this doesn't belong here)
     this.on('dashboard:file-edit-complete', (file) => {
       if (file) {
         this.#checkRequiredMetaFieldsOnFile(file)
@@ -1504,7 +1533,7 @@ export class Uppy<M extends Meta, B extends Body> {
     }
   }
 
-  updateOnlineStatus() {
+  updateOnlineStatus(): void {
     const online =
       typeof window.navigator.onLine !== 'undefined'
         ? window.navigator.onLine
@@ -1525,19 +1554,17 @@ export class Uppy<M extends Meta, B extends Body> {
 
   #updateOnlineStatus = this.updateOnlineStatus.bind(this)
 
-  getID() {
+  getID(): UppyOptions<M, B>['id'] {
     return this.opts.id
   }
 
   /**
    * Registers a plugin with Core.
-   *
-   * @param {object} Plugin object
-   * @param {object} [opts] object with options to be passed to Plugin
-   * @returns {object} self for chaining
    */
-  // eslint-disable-next-line no-shadow
-  use(Plugin: typeof BasePlugin | typeof UIPlugin, opts) {
+  use<O extends PluginOpts, I extends UIPlugin<O, M, B> | BasePlugin<O, M, B>>(
+    Plugin: new (uppy: this, opts?: O) => I,
+    opts?: O,
+  ): this {
     if (typeof Plugin !== 'function') {
       const msg =
         `Expected a plugin class, but got ${
@@ -1568,7 +1595,9 @@ export class Uppy<M extends Meta, B extends Body> {
       throw new Error(msg)
     }
 
+    // @ts-expect-error does exist
     if (Plugin.VERSION) {
+      // @ts-expect-error does exist
       this.log(`Using ${pluginId} v${Plugin.VERSION}`)
     }
 
@@ -1586,11 +1615,8 @@ export class Uppy<M extends Meta, B extends Body> {
 
   /**
    * Find one Plugin by name.
-   *
-   * @param {string} id plugin id
-   * @returns {BasePlugin|undefined}
    */
-  getPlugin(id) {
+  getPlugin(id: string): UnknownPlugin<M, B> | undefined {
     for (const plugins of Object.values(this.#plugins)) {
       const foundPlugin = plugins.find((plugin) => plugin.id === id)
       if (foundPlugin != null) return foundPlugin
@@ -1598,18 +1624,15 @@ export class Uppy<M extends Meta, B extends Body> {
     return undefined
   }
 
-  [Symbol.for('uppy test: getPlugins')](type) {
+  [Symbol.for('uppy test: getPlugins')](type: string): UnknownPlugin<M, B>[] {
     return this.#plugins[type]
   }
 
   /**
    * Iterate through all `use`d plugins.
    *
-   * @param {Function} method that will be run on each plugin
    */
-  iteratePlugins(
-    method: (plugin: BasePlugin<any> | UIPlugin<any>) => void,
-  ): void {
+  iteratePlugins(method: (plugin: UnknownPlugin<M, B>) => void): void {
     Object.values(this.#plugins).flat(1).forEach(method)
   }
 
@@ -1618,7 +1641,7 @@ export class Uppy<M extends Meta, B extends Body> {
    *
    * @param {object} instance The plugin instance to remove.
    */
-  removePlugin(instance) {
+  removePlugin(instance: UnknownPlugin<M, B>): void {
     this.log(`Removing plugin ${instance.id}`)
     this.emit('plugin-remove', instance)
 
@@ -1648,7 +1671,7 @@ export class Uppy<M extends Meta, B extends Body> {
   /**
    * Uninstall all plugins and close down this Uppy instance.
    */
-  close({ reason } = {}) {
+  close({ reason }: { reason?: string } | undefined = {}): void {
     this.log(
       `Closing Uppy instance ${this.opts.id}: removing all files and uninstalling plugins`,
     )
@@ -1667,7 +1690,7 @@ export class Uppy<M extends Meta, B extends Body> {
     }
   }
 
-  hideInfo() {
+  hideInfo(): void {
     const { info } = this.getState()
 
     this.setState({ info: info.slice(1) })
@@ -1678,12 +1701,12 @@ export class Uppy<M extends Meta, B extends Body> {
   /**
    * Set info message in `state.info`, so that UI plugins like `Informer`
    * can display the message.
-   *
-   * @param {string | object} message Message to be displayed by the informer
-   * @param {string} [type]
-   * @param {number} [duration]
    */
-  info(message, type = 'info', duration = 3000) {
+  info(
+    message: string | { message: string; details?: string },
+    type: LogLevel = 'info',
+    duration = 3000,
+  ): void {
     const isComplexMessage = typeof message === 'object'
 
     this.setState({
@@ -1724,7 +1747,7 @@ export class Uppy<M extends Meta, B extends Body> {
   /**
    * Restore an upload by its ID.
    */
-  restore(uploadID) {
+  restore(uploadID: string): Promise<UploadResult<M, B> | undefined> {
     this.log(`Core: attempting to restore upload "${uploadID}"`)
 
     if (!this.getState().currentUploads[uploadID]) {
@@ -1738,10 +1761,11 @@ export class Uppy<M extends Meta, B extends Body> {
   /**
    * Create an upload for a bunch of files.
    *
-   * @param {Array<string>} fileIDs File IDs to include in this upload.
-   * @returns {string} ID of this upload.
    */
-  #createUpload(fileIDs, opts = {}) {
+  #createUpload(
+    fileIDs: string[],
+    opts: { forceAllowNewUpload?: boolean } = {},
+  ): string {
     // uppy.retryAll sets this to true — when retrying we want to ignore `allowNewUpload: false`
     const { forceAllowNewUpload = false } = opts
 
@@ -1775,11 +1799,13 @@ export class Uppy<M extends Meta, B extends Body> {
     return uploadID
   }
 
-  [Symbol.for('uppy test: createUpload')](...args) {
+  // @ts-expect-error same type as createUpload
+  [Symbol.for('uppy test: createUpload')](...args): string {
+    // @ts-expect-error same type as createUpload
     return this.#createUpload(...args)
   }
 
-  #getUpload(uploadID) {
+  #getUpload(uploadID: string): CurrentUpload<M, B> {
     const { currentUploads } = this.getState()
 
     return currentUploads[uploadID]
@@ -1808,9 +1834,8 @@ export class Uppy<M extends Meta, B extends Body> {
   /**
    * Remove an upload, eg. if it has been canceled or completed.
    *
-   * @param {string} uploadID The ID of the upload.
    */
-  #removeUpload(uploadID) {
+  #removeUpload(uploadID: string): void {
     const currentUploads = { ...this.getState().currentUploads }
     delete currentUploads[uploadID]
 
@@ -1821,8 +1846,6 @@ export class Uppy<M extends Meta, B extends Body> {
 
   /**
    * Run an upload. This picks up where it left off in case the upload is being restored.
-   *
-   * @private
    */
   async #runUpload(uploadID: string): Promise<UploadResult<M, B> | undefined> {
     const getCurrentUpload = (): CurrentUpload<M, B> => {
@@ -1916,10 +1939,8 @@ export class Uppy<M extends Meta, B extends Body> {
 
   /**
    * Start an upload for all the files that are not currently being uploaded.
-   *
-   * @returns {Promise}
    */
-  upload() {
+  upload(): Promise<UploadResult<M, B> | undefined> {
     if (!this.#plugins.uploader?.length) {
       this.log('No uploader type plugins are used', 'warning')
     }
@@ -1969,7 +1990,7 @@ export class Uppy<M extends Meta, B extends Body> {
           (curr) => curr.fileIDs,
         )
 
-        const waitingFileIDs = []
+        const waitingFileIDs: string[] = []
         Object.keys(files).forEach((fileID) => {
           const file = this.getFile(fileID)
           // if the file hasn't started uploading and hasn't already been assigned to an upload..

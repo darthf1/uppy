@@ -5,8 +5,8 @@ import Core from './index.ts'
 describe('UIPlugin', () => {
   describe('getPluginState', () => {
     it('returns an empty object if no state is available', () => {
-      class Example extends UIPlugin {}
-      const inst = new Example(new Core(), {})
+      class Example extends UIPlugin<any, any, any> {}
+      const inst = new Example(new Core<any, any>(), {})
 
       expect(inst.getPluginState()).toEqual({})
     })
@@ -14,7 +14,7 @@ describe('UIPlugin', () => {
 
   describe('setPluginState', () => {
     it('applies patches', () => {
-      class Example extends UIPlugin {}
+      class Example extends UIPlugin<any, any, any> {}
       const inst = new Example(new Core(), {})
 
       inst.setPluginState({ a: 1 })
