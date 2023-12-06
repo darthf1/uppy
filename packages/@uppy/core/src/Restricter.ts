@@ -39,7 +39,7 @@ class RestrictionError<M extends Meta, B extends Body> extends Error {
     opts?: { isUserFacing?: boolean; file?: UppyFile<M, B> },
   ) {
     super(message)
-    this.isUserFacing = opts?.isUserFacing ?? false
+    this.isUserFacing = opts?.isUserFacing ?? true
     if (opts?.file) {
       this.file = opts.file // only some restriction errors are related to a particular file
     }
