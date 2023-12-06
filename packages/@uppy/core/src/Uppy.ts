@@ -11,7 +11,11 @@ import getFileNameAndExtension from '@uppy/utils/lib/getFileNameAndExtension'
 import { getSafeFileId } from '@uppy/utils/lib/generateFileID'
 import type { UppyFile, Meta, Body } from '@uppy/utils/lib/UppyFile'
 import type { FileProgress } from '@uppy/utils/lib/FileProgress'
-import type { Locale, I18n } from '@uppy/utils/lib/Translator'
+import type {
+  Locale,
+  I18n,
+  OptionalPluralizeLocale,
+} from '@uppy/utils/lib/Translator'
 import supportsUploadProgress from './supportsUploadProgress.ts'
 import getFileName from './getFileName.ts'
 import { justErrorsLogger, debugLogger } from './loggers.ts'
@@ -30,27 +34,29 @@ import type UIPlugin from './UIPlugin.ts'
 import type { Restrictions } from './Restricter.ts'
 import type { PluginOpts } from './BasePlugin.ts'
 
-type Processor = (fileIDs: string[], uploadID: string) => Promise<void>
+type Processor = (fileIDs: string[], uploadID: string) => Promise<void> | void
 
 type FileRemoveReason = 'removed-by-user' | 'cancel-all'
 
 type LogLevel = 'info' | 'warning' | 'error' | 'success'
 
-type UploadHandler = (fileIDs: string[]) => Promise<void>
-
 type UnknownPlugin<M extends Meta, B extends Body> = InstanceType<
   typeof BasePlugin<any, M, B> | typeof UIPlugin<any, M, B>
 >
 
+// The user facing type for UppyFile used in uppy.addFile() and uppy.setOptions()
 type MinimalRequiredUppyFile<M extends Meta, B extends Body> = Required<
   Pick<UppyFile<M, B>, 'name' | 'data' | 'type' | 'source'>
 > &
-  Partial<Omit<UppyFile<M, B>, 'name' | 'data' | 'type' | 'source'>>
+  Partial<
+    Omit<UppyFile<M, B>, 'name' | 'data' | 'type' | 'source' | 'meta'>
+  > & { meta?: M }
 
 interface UploadResult<M extends Meta, B extends Body> {
   successful?: UppyFile<M, B>[]
   failed?: UppyFile<M, B>[]
   uploadID?: string
+  [key: string]: unknown
 }
 
 interface CurrentUpload<M extends Meta, B extends Body> {
@@ -82,7 +88,7 @@ export interface State<M extends Meta, B extends Body>
     isHidden?: boolean
     type: LogLevel
     message: string
-    details?: string | null
+    details?: string | Record<string, string> | null
   }>
   plugins: Plugins
   totalProgress: number
@@ -98,7 +104,7 @@ export interface UppyOptions<M extends Meta, B extends Body> {
   allowMultipleUploadBatches?: boolean
   logger?: typeof debugLogger
   debug?: boolean
-  restrictions?: Restrictions
+  restrictions: Restrictions
   meta?: M
   onBeforeFileAdded?: (
     currentFile: UppyFile<M, B>,
@@ -111,6 +117,22 @@ export interface UppyOptions<M extends Meta, B extends Body> {
   store?: InstanceType<typeof DefaultStore<State<M, B>>>
   infoTimeout?: number
 }
+
+export interface UppyOptionsWithOptionalRestrictions<
+  M extends Meta,
+  B extends Body,
+> extends Omit<UppyOptions<M, B>, 'restrictions'> {
+  restrictions?: Partial<Restrictions>
+}
+
+// The user facing type for UppyOptions used in uppy.setOptions()
+type MinimalRequiredOptions<M extends Meta, B extends Body> = Partial<
+  Omit<UppyOptions<M, B>, 'locale' | 'meta' | 'restrictions'> & {
+    locale: OptionalPluralizeLocale
+    meta: Partial<M>
+    restrictions: Partial<Restrictions>
+  }
+>
 
 export type NonNullableUppyOptions<M extends Meta, B extends Body> = Required<
   UppyOptions<M, B>
@@ -143,6 +165,9 @@ type PreProcessCompleteCallback<M extends Meta, B extends Body> = (
 type UploadPauseCallback<M extends Meta, B extends Body> = (
   fileID: UppyFile<M, B>['id'] | undefined,
   isPaused: boolean,
+) => void
+type UploadStartedCallback<M extends Meta, B extends Body> = (
+  file: UppyFile<M, B>,
 ) => void
 type UploadProgressCallback<M extends Meta, B extends Body> = (
   file: UppyFile<M, B> | undefined,
@@ -177,9 +202,14 @@ type RestrictionFailedCallback<M extends Meta, B extends Body> = (
   file: UppyFile<M, B> | undefined,
   error: Error,
 ) => void
+type StateUpdateCallback<M extends Meta, B extends Body> = (
+  prevState: State<M, B>,
+  nextState: State<M, B>,
+) => void
 
 interface UppyEventMap<M extends Meta, B extends Body> {
   'cancel-all': GenericEventCallback
+  'state-update': StateUpdateCallback<M, B>
   restored: GenericEventCallback
   complete: UploadCompleteCallback<M, B>
   error: ErrorCallback<M, B>
@@ -200,6 +230,7 @@ interface UppyEventMap<M extends Meta, B extends Body> {
   'retry-all': RetryAllCallback
   'upload-error': UploadErrorCallback<M, B>
   'upload-pause': UploadPauseCallback<M, B>
+  'upload-started': UploadStartedCallback<M, B>
   'upload-progress': UploadProgressCallback<M, B>
   'upload-stalled': UploadStalledCallback<M, B>
   'upload-retry': UploadRetryCallback
@@ -256,10 +287,8 @@ export class Uppy<M extends Meta, B extends Body> {
 
   /**
    * Instantiate Uppy
-   *
-   * @param {object} opts — Uppy options
    */
-  constructor(opts?: UppyOptions<M, B>) {
+  constructor(opts?: UppyOptionsWithOptionalRestrictions<M, B>) {
     this.defaultLocale = locale
 
     const defaultOptions: UppyOptions<Record<string, unknown>, B> = {
@@ -432,10 +461,10 @@ export class Uppy<M extends Meta, B extends Body> {
     this.locale = translator.locale
   }
 
-  setOptions(newOpts: Partial<UppyOptions<M, B>>): void {
+  setOptions(newOpts: MinimalRequiredOptions<M, B>): void {
     this.opts = {
       ...this.opts,
-      ...newOpts,
+      ...(newOpts as UppyOptions<M, B>),
       restrictions: {
         ...this.opts.restrictions,
         ...(newOpts && (newOpts.restrictions as Restrictions)),
@@ -443,7 +472,7 @@ export class Uppy<M extends Meta, B extends Body> {
     }
 
     if (newOpts.meta) {
-      this.setMeta(newOpts.meta)
+      this.setMeta(newOpts.meta as M)
     }
 
     this.i18nInit()
@@ -488,31 +517,31 @@ export class Uppy<M extends Meta, B extends Body> {
     this.setState({ ...defaultUploadState, files: {} })
   }
 
-  addPreProcessor(fn: UploadHandler): void {
+  addPreProcessor(fn: Processor): void {
     this.#preProcessors.add(fn)
   }
 
-  removePreProcessor(fn: UploadHandler): boolean {
+  removePreProcessor(fn: Processor): boolean {
     return this.#preProcessors.delete(fn)
   }
 
-  addPostProcessor(fn: UploadHandler): void {
+  addPostProcessor(fn: Processor): void {
     this.#postProcessors.add(fn)
   }
 
-  removePostProcessor(fn: UploadHandler): boolean {
+  removePostProcessor(fn: Processor): boolean {
     return this.#postProcessors.delete(fn)
   }
 
-  addUploader(fn: UploadHandler): void {
+  addUploader(fn: Processor): void {
     this.#uploaders.add(fn)
   }
 
-  removeUploader(fn: UploadHandler): boolean {
+  removeUploader(fn: Processor): boolean {
     return this.#uploaders.delete(fn)
   }
 
-  setMeta(data: M): void {
+  setMeta(data: Partial<M>): void {
     const updatedMeta = { ...this.getState().meta, ...data }
     const updatedFiles = { ...this.getState().files }
 
@@ -670,7 +699,10 @@ export class Uppy<M extends Meta, B extends Body> {
     }
   }
 
-  validateRestrictions(file: UppyFile<M, B>, files = this.getFiles()): null {
+  validateRestrictions(
+    file: UppyFile<M, B>,
+    files = this.getFiles(),
+  ): RestrictionError<M, B> | null {
     try {
       this.#restricter.validate(files, [file])
     } catch (err) {
@@ -895,7 +927,7 @@ export class Uppy<M extends Meta, B extends Body> {
    * try to guess file type in a clever way, check file against restrictions,
    * and start an upload if `autoProceed === true`.
    */
-  addFile(file: MinimalRequiredUppyFile<M, B>): UppyFile<M, B>['id'] {
+  addFile(file: File | MinimalRequiredUppyFile<M, B>): UppyFile<M, B>['id'] {
     this.#assertNewUploadAllowed(file as UppyFile<M, B>)
 
     const { nextFilesState, validFilesToAdd, errors } =
@@ -1708,7 +1740,9 @@ export class Uppy<M extends Meta, B extends Body> {
    * can display the message.
    */
   info(
-    message: string | { message: string; details?: string },
+    message:
+      | string
+      | { message: string; details?: string | Record<string, string> },
     type: LogLevel = 'info',
     duration = 3000,
   ): void {
@@ -1944,7 +1978,7 @@ export class Uppy<M extends Meta, B extends Body> {
   /**
    * Start an upload for all the files that are not currently being uploaded.
    */
-  upload(): Promise<UploadResult<M, B> | undefined> {
+  upload(): Promise<NonNullable<UploadResult<M, B>> | undefined> {
     if (!this.#plugins.uploader?.length) {
       this.log('No uploader type plugins are used', 'warning')
     }

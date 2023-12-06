@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 /* eslint no-console: "off", no-restricted-syntax: "off" */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -16,11 +18,15 @@ import InvalidPluginWithoutId from './mocks/invalidPluginWithoutId.ts'
 import InvalidPluginWithoutType from './mocks/invalidPluginWithoutType.ts'
 // @ts-expect-error trying to import a file from outside the package
 import DeepFrozenStore from '../../../../e2e/cypress/fixtures/DeepFrozenStore.mjs'
+import type { State } from './Uppy.ts'
 
 // eslint-disable-next-line no-restricted-globals
 const sampleImage = fs.readFileSync(
   path.join(__dirname, '../../../../e2e/cypress/fixtures/images/image.jpg'),
 )
+
+// @ts-ignore type object can be second argument
+const testImage = new File([sampleImage], { type: 'image/jpeg' })
 
 describe('src/Core', () => {
   const RealCreateObjectUrl = globalThis.URL.createObjectURL
@@ -96,7 +102,8 @@ describe('src/Core', () => {
 
       core.use(AcquirerPlugin1)
       const plugin = core.getPlugin('TestSelector1')
-      expect(plugin.id).toEqual('TestSelector1')
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      expect(plugin!.id).toEqual('TestSelector1')
       expect(plugin instanceof UIPlugin)
     })
 
@@ -105,21 +112,26 @@ describe('src/Core', () => {
       core.use(AcquirerPlugin1)
       core.use(AcquirerPlugin2)
       core.iteratePlugins((plugin) => {
+        // @ts-ignore
         plugin.run('hello')
       })
       expect(
+        // @ts-ignore
         core[Symbol.for('uppy test: getPlugins')]('acquirer')[0].mocks.run.mock
           .calls.length,
       ).toEqual(1)
       expect(
+        // @ts-ignore
         core[Symbol.for('uppy test: getPlugins')]('acquirer')[0].mocks.run.mock
           .calls[0],
       ).toEqual(['hello'])
       expect(
+        // @ts-ignore
         core[Symbol.for('uppy test: getPlugins')]('acquirer')[1].mocks.run.mock
           .calls.length,
       ).toEqual(1)
       expect(
+        // @ts-ignore
         core[Symbol.for('uppy test: getPlugins')]('acquirer')[1].mocks.run.mock
           .calls[0],
       ).toEqual(['hello'])
@@ -130,18 +142,22 @@ describe('src/Core', () => {
       core.use(AcquirerPlugin1)
       core.use(AcquirerPlugin2)
       expect(
+        // @ts-ignore
         Object.keys(core[Symbol.for('uppy test: getPlugins')]('acquirer'))
           .length,
       ).toEqual(2)
 
       const plugin = core.getPlugin('TestSelector1')
-      core.removePlugin(plugin)
+      core.removePlugin(plugin!)
       expect(
+        // @ts-ignore
         Object.keys(core[Symbol.for('uppy test: getPlugins')]('acquirer'))
           .length,
       ).toEqual(1)
+      // @ts-ignore
       expect(plugin.mocks.uninstall.mock.calls.length).toEqual(1)
       expect(
+        // @ts-ignore
         core[Symbol.for('uppy test: getPlugins')]('acquirer')[0].mocks.run.mock
           .calls.length,
       ).toEqual(0)
@@ -155,18 +171,22 @@ describe('src/Core', () => {
       core.use(AcquirerPlugin2)
       core.updateAll({ foo: 'bar' })
       expect(
+        // @ts-ignore
         core[Symbol.for('uppy test: getPlugins')]('acquirer')[0].mocks.update
           .mock.calls.length,
       ).toEqual(1)
       expect(
+        // @ts-ignore
         core[Symbol.for('uppy test: getPlugins')]('acquirer')[0].mocks.update
           .mock.calls[0],
       ).toEqual([{ foo: 'bar' }])
       expect(
+        // @ts-ignore
         core[Symbol.for('uppy test: getPlugins')]('acquirer')[1].mocks.update
           .mock.calls.length,
       ).toEqual(1)
       expect(
+        // @ts-ignore
         core[Symbol.for('uppy test: getPlugins')]('acquirer')[1].mocks.update
           .mock.calls[0],
       ).toEqual([{ foo: 'bar' }])
@@ -204,10 +224,12 @@ describe('src/Core', () => {
       expect(core.getState()).toEqual(newState)
 
       expect(
+        // @ts-ignore
         core[Symbol.for('uppy test: getPlugins')]('acquirer')[0].mocks.update
           .mock.calls[1],
       ).toEqual([newState])
       expect(
+        // @ts-ignore
         core[Symbol.for('uppy test: getPlugins')]('acquirer')[1].mocks.update
           .mock.calls[1],
       ).toEqual([newState])
@@ -311,17 +333,18 @@ describe('src/Core', () => {
       source: 'vi',
       name: 'foo1.jpg',
       type: 'image/jpeg',
-      data: new File([sampleImage], { type: 'image/jpeg' }),
+      data: testImage,
     })
 
     core.addFile({
       source: 'vi',
       name: 'foo2.jpg',
       type: 'image/jpeg',
-      data: new File([sampleImage], { type: 'image/jpeg' }),
+      data: testImage,
     })
 
     const fileIDs = Object.keys(core.getState().files)
+    // @ts-ignore
     const id = core[Symbol.for('uppy test: createUpload')](fileIDs)
 
     expect(core.getState().currentUploads[id]).toBeDefined()
@@ -348,17 +371,18 @@ describe('src/Core', () => {
       source: 'vi',
       name: 'foo1.jpg',
       type: 'image/jpeg',
-      data: new File([sampleImage], { type: 'image/jpeg' }),
+      data: testImage,
     })
 
     core.addFile({
       source: 'vi',
       name: 'foo2.jpg',
       type: 'image/jpeg',
-      data: new File([sampleImage], { type: 'image/jpeg' }),
+      data: testImage,
     })
 
     const fileIDs = Object.keys(core.getState().files)
+    // @ts-ignore
     const id = core[Symbol.for('uppy test: createUpload')](fileIDs)
 
     expect(core.getState().currentUploads[id]).toBeDefined()
@@ -385,17 +409,18 @@ describe('src/Core', () => {
       source: 'vi',
       name: 'foo1.jpg',
       type: 'image/jpeg',
-      data: new File([sampleImage], { type: 'image/jpeg' }),
+      data: testImage,
     })
 
     core.addFile({
       source: 'vi',
       name: 'foo2.jpg',
       type: 'image/jpeg',
-      data: new File([sampleImage], { type: 'image/jpeg' }),
+      data: testImage,
     })
 
     const fileIDs = Object.keys(core.getState().files)
+    // @ts-ignore
     const id = core[Symbol.for('uppy test: createUpload')](fileIDs)
 
     expect(core.getState().currentUploads[id]).toBeDefined()
@@ -425,17 +450,18 @@ describe('src/Core', () => {
       source: 'vi',
       name: 'foo1.jpg',
       type: 'image/jpeg',
-      data: new File([sampleImage], { type: 'image/jpeg' }),
+      data: testImage,
     })
 
     core.addFile({
       source: 'vi',
       name: 'foo2.jpg',
       type: 'image/jpeg',
-      data: new File([sampleImage], { type: 'image/jpeg' }),
+      data: testImage,
     })
 
     const fileIDs = Object.keys(core.getState().files)
+    // @ts-ignore
     const id = core[Symbol.for('uppy test: createUpload')](fileIDs)
 
     expect(core.getState().currentUploads[id]).toBeDefined()
@@ -456,6 +482,7 @@ describe('src/Core', () => {
 
     const coreCancelEventMock = vi.fn()
     const coreStateUpdateEventMock = vi.fn()
+    // @ts-ignore
     const plugin = core[Symbol.for('uppy test: getPlugins')]('acquirer')[0]
 
     core.on('cancel-all', coreCancelEventMock)
@@ -508,9 +535,11 @@ describe('src/Core', () => {
         core.addResultData(uploadID, { upload: 'ok' })
       })
       return core.upload().then((result) => {
-        expect(result.pre).toBe('ok')
-        expect(result.upload).toBe('ok')
-        expect(result.post).toBe('ok')
+        if (result) {
+          expect(result.pre).toBe('ok')
+          expect(result.upload).toBe('ok')
+          expect(result.post).toBe('ok')
+        }
       })
     })
   })
@@ -518,7 +547,8 @@ describe('src/Core', () => {
   describe('preprocessors', () => {
     it('should add and remove preprocessor', () => {
       const core = new Core()
-      const preprocessor = Function.prototype
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
+      const preprocessor = () => {}
       expect(core.removePreProcessor(preprocessor)).toBe(false)
       core.addPreProcessor(preprocessor)
       expect(core.removePreProcessor(preprocessor)).toBe(true)
@@ -536,7 +566,7 @@ describe('src/Core', () => {
         source: 'vi',
         name: 'foo.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
 
       return core.upload().then(() => {
@@ -563,19 +593,19 @@ describe('src/Core', () => {
         source: 'vi',
         name: 'rmd.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
       core.addFile({
         source: 'vi',
         name: 'kept.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
 
       await core.upload()
 
       expect(uploader.mock.calls.length).toEqual(1)
-      expect(uploader.mock.calls[0][0].length).toEqual(1, 'Got 1 file ID')
+      expect(uploader.mock.calls[0][0].length).toEqual(1)
       expect(core.getFile(uploader.mock.calls[0][0][0]).name).toEqual(
         'kept.jpg',
       )
@@ -587,7 +617,7 @@ describe('src/Core', () => {
         source: 'vi',
         name: 'foo.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
 
       const fileId = Object.keys(core.getState().files)[0]
@@ -614,7 +644,7 @@ describe('src/Core', () => {
         source: 'vi',
         name: 'foo.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
 
       const fileID = Object.keys(core.getState().files)[0]
@@ -637,7 +667,8 @@ describe('src/Core', () => {
   describe('postprocessors', () => {
     it('should add and remove postprocessor', () => {
       const core = new Core()
-      const postprocessor = Function.prototype
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
+      const postprocessor = () => {}
       expect(core.removePostProcessor(postprocessor)).toBe(false)
       core.addPostProcessor(postprocessor)
       expect(core.removePostProcessor(postprocessor)).toBe(true)
@@ -655,7 +686,7 @@ describe('src/Core', () => {
         source: 'vi',
         name: 'foo.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
 
       return core.upload().then(() => {
@@ -683,7 +714,7 @@ describe('src/Core', () => {
         source: 'vi',
         name: 'foo.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
 
       const fileId = Object.keys(core.getState().files)[0]
@@ -710,7 +741,7 @@ describe('src/Core', () => {
         source: 'vi',
         name: 'foo.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
 
       const fileId = Object.keys(core.getState().files)[0]
@@ -736,7 +767,7 @@ describe('src/Core', () => {
         source: 'vi',
         name: 'foo.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
 
       const fileId = Object.keys(core.getState().files)[0]
@@ -754,7 +785,8 @@ describe('src/Core', () => {
   describe('uploaders', () => {
     it('should add and remove uploader', () => {
       const core = new Core()
-      const uploader = Function.prototype
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
+      const uploader = () => {}
       expect(core.removeUploader(uploader)).toBe(false)
       core.addUploader(uploader)
       expect(core.removeUploader(uploader)).toBe(true)
@@ -776,7 +808,7 @@ describe('src/Core', () => {
         source: 'vi',
         name: 'foo.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
 
       expect(onBeforeFileAdded.mock.calls.length).toEqual(1)
@@ -786,7 +818,7 @@ describe('src/Core', () => {
 
     it('should allow uploading duplicate file if explicitly allowed in onBeforeFileAdded', async () => {
       const core = new Core({ onBeforeFileAdded: () => true })
-      const sameFileBlob = new File([sampleImage], { type: 'image/jpeg' })
+      const sameFileBlob = testImage
 
       core.addFile({
         source: 'vi',
@@ -804,7 +836,7 @@ describe('src/Core', () => {
     })
 
     it('should add a file', () => {
-      const fileData = new File([sampleImage], { type: 'image/jpeg' })
+      const fileData = testImage
       const fileAddedEventMock = vi.fn()
       const core = new Core()
       core.on('file-added', fileAddedEventMock)
@@ -841,7 +873,7 @@ describe('src/Core', () => {
     })
 
     it('should add a file from a File object', () => {
-      const fileData = new File([sampleImage], { type: 'image/jpeg' })
+      const fileData = testImage
       const core = new Core()
 
       const fileId = core.addFile(fileData)
@@ -860,7 +892,7 @@ describe('src/Core', () => {
           source: 'vi',
           name: 'foo.jpg',
           type: 'image/jpeg',
-          data: new File([sampleImage], { type: 'image/jpeg' }),
+          data: testImage,
         })
       }).toThrow('You can only upload: image/gif, video/webm')
 
@@ -869,6 +901,7 @@ describe('src/Core', () => {
           source: 'vi',
           name: 'foo.webm',
           type: 'video/webm; codecs="vp8, opus"',
+          // @ts-ignore
           data: new File([sampleImage], {
             type: 'video/webm; codecs="vp8, opus"',
           }),
@@ -878,7 +911,7 @@ describe('src/Core', () => {
 
     it('should not allow a dupicate file, a file with the same id', () => {
       const core = new Core()
-      const sameFileBlob = new File([sampleImage], { type: 'image/jpeg' })
+      const sameFileBlob = testImage
       core.addFile({
         source: 'vi',
         name: 'foo.jpg',
@@ -905,13 +938,13 @@ describe('src/Core', () => {
         source: 'vi',
         name: 'foo.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
       core.addFile({
         source: 'vi',
         name: 'foo.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
         meta: {
           relativePath: 'folder/a',
         },
@@ -933,7 +966,7 @@ describe('src/Core', () => {
           source: 'vi',
           name: 'foo.jpg',
           type: 'image/jpeg',
-          data: new File([sampleImage], { type: 'image/jpeg' }),
+          data: testImage,
         })
       }).toThrow(
         'Cannot add the file because onBeforeFileAdded returned false.',
@@ -948,7 +981,7 @@ describe('src/Core', () => {
           source: 'vi',
           name: 'foo.jpg',
           type: 'image/jpeg',
-          data: new File([sampleImage], { type: 'image/jpeg' }),
+          data: testImage,
         })
 
         await core.upload()
@@ -958,7 +991,7 @@ describe('src/Core', () => {
             source: 'vi',
             name: '123.foo',
             type: 'image/jpeg',
-            data: new File([sampleImage], { type: 'image/jpeg' }),
+            data: testImage,
           })
         }).toThrow(/Cannot add more files/)
       })
@@ -969,7 +1002,7 @@ describe('src/Core', () => {
           source: 'vi',
           name: 'foo.jpg',
           type: 'image/jpeg',
-          data: new File([sampleImage], { type: 'image/jpeg' }),
+          data: testImage,
         })
 
         await core.upload()
@@ -979,7 +1012,7 @@ describe('src/Core', () => {
             source: 'vi',
             name: '123.foo',
             type: 'image/jpeg',
-            data: new File([sampleImage], { type: 'image/jpeg' }),
+            data: testImage,
           })
         }).toThrow(/Cannot add more files/)
       })
@@ -992,13 +1025,13 @@ describe('src/Core', () => {
           source: 'vi',
           name: '1.jpg',
           type: 'image/jpeg',
-          data: new File([sampleImage], { type: 'image/jpeg' }),
+          data: testImage,
         })
         core.addFile({
           source: 'vi',
           name: '2.jpg',
           type: 'image/jpeg',
-          data: new File([sampleImage], { type: 'image/jpeg' }),
+          data: testImage,
         })
 
         // removing 1 file
@@ -1015,13 +1048,13 @@ describe('src/Core', () => {
           source: 'vi',
           name: '1.jpg',
           type: 'image/jpeg',
-          data: new File([sampleImage], { type: 'image/jpeg' }),
+          data: testImage,
         })
         const fileId2 = core.addFile({
           source: 'vi',
           name: '2.jpg',
           type: 'image/jpeg',
-          data: new File([sampleImage], { type: 'image/jpeg' }),
+          data: testImage,
         })
 
         // removing 2 files
@@ -1035,6 +1068,7 @@ describe('src/Core', () => {
     it('does not dedupe different files', async () => {
       const core = new Core()
       const data = new Blob([sampleImage], { type: 'image/jpeg' })
+      // @ts-ignore
       data.lastModified = 1562770350937
 
       core.addFile({
@@ -1069,13 +1103,13 @@ describe('src/Core', () => {
         source: 'vi',
         name: 'foo.jpg',
         type: 'image/jpeg',
-        data: new Uint8Array(),
+        data: testImage,
       })
       core.addFile({
         source: 'vi',
         name: 'bar.jpg',
         type: 'image/jpeg',
-        data: new Uint8Array(),
+        data: testImage,
       })
 
       return expect(core.upload()).resolves.toMatchObject({
@@ -1107,13 +1141,13 @@ describe('src/Core', () => {
         source: 'vi',
         name: 'foo.jpg',
         type: 'image/jpeg',
-        data: new Uint8Array(),
+        data: testImage,
       })
       core.addFile({
         source: 'vi',
         name: 'bar.jpg',
         type: 'image/jpeg',
-        data: new Uint8Array(),
+        data: testImage,
       })
 
       return expect(core.upload()).resolves.toMatchObject({
@@ -1127,6 +1161,7 @@ describe('src/Core', () => {
     it('should only upload files that are not already assigned to another upload id', () => {
       const core = new Core()
       core.store.state.currentUploads = {
+        // @ts-ignore
         upload1: {
           fileIDs: [
             'uppy-file1/jpg-1e-image/jpeg',
@@ -1134,6 +1169,7 @@ describe('src/Core', () => {
             'uppy-file3/jpg-1e-image/jpeg',
           ],
         },
+        // @ts-ignore
         upload2: {
           fileIDs: [
             'uppy-file4/jpg-1e-image/jpeg',
@@ -1148,29 +1184,33 @@ describe('src/Core', () => {
         source: 'vi',
         name: 'foo.jpg',
         type: 'image/jpeg',
+        // @ts-ignore
         data: new Uint8Array(),
       })
       core.addFile({
         source: 'vi',
         name: 'bar.jpg',
         type: 'image/jpeg',
+        // @ts-ignore
         data: new Uint8Array(),
       })
       core.addFile({
         source: 'file3',
         name: 'file3.jpg',
         type: 'image/jpeg',
+        // @ts-ignore
         data: new Uint8Array(),
       })
 
       // uploadID is random, we don't want randomness in the snapshot
-      const validateNanoID = (r) =>
-        typeof r.uploadID === 'string' && r.uploadID.length === 21
-          ? { ...r, uploadID: 'cjd09qwxb000dlql4tp4doz8h' }
-          : r
-
       return expect(
-        core.upload().then(validateNanoID),
+        core
+          .upload()
+          .then((r) =>
+            typeof r!.uploadID === 'string' && r!.uploadID.length === 21
+              ? { ...r, uploadID: 'cjd09qwxb000dlql4tp4doz8h' }
+              : r,
+          ),
       ).resolves.toMatchSnapshot()
     })
 
@@ -1182,26 +1222,26 @@ describe('src/Core', () => {
               return false
             }
           }
-          return undefined
+          return files
         },
       })
       core.addFile({
         source: 'vi',
         name: 'foo.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
       core.addFile({
         source: 'vi',
         name: 'bar.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
       core.addFile({
         source: 'vi',
         name: '123.foo',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
       return core.upload().catch((err) => {
         expect(err).toMatchObject(
@@ -1218,13 +1258,13 @@ describe('src/Core', () => {
         source: 'vi',
         name: 'foo.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
       core.addFile({
         source: 'vi',
         name: 'bar.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
 
       await expect(core.upload()).resolves.toBeDefined()
@@ -1240,7 +1280,7 @@ describe('src/Core', () => {
         source: 'vi',
         name: 'bar.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
       await expect(core.upload()).resolves.toBeDefined()
 
@@ -1250,7 +1290,7 @@ describe('src/Core', () => {
         source: 'vi',
         name: '123.foo',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
       await expect(core.upload()).resolves.toBeDefined()
     })
@@ -1267,7 +1307,7 @@ describe('src/Core', () => {
         source: 'vi',
         name: 'foo.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
 
       const fileId = Object.keys(core.getState().files)[0]
@@ -1298,7 +1338,7 @@ describe('src/Core', () => {
         source: 'vi',
         name: 'foo.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
       core.setFileState(id, {
         error: 'something went wrong',
@@ -1319,7 +1359,7 @@ describe('src/Core', () => {
         source: 'vi',
         name: 'foo.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
 
       await core.retryAll()
@@ -1341,7 +1381,7 @@ describe('src/Core', () => {
         source: 'vi',
         name: 'foo.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
 
       const fileId = Object.keys(core.getState().files)[0]
@@ -1365,12 +1405,13 @@ describe('src/Core', () => {
         source: 'vi',
         name: 'foo.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
       core.addFile({
         source: 'vi',
         name: 'empty.dat',
         type: 'application/octet-stream',
+        // @ts-ignore
         data: new File([new Uint8Array(1000)], {
           type: 'application/octet-stream',
         }),
@@ -1417,11 +1458,10 @@ describe('src/Core', () => {
     })
 
     it('should change meta on the fly', () => {
-      const core = new Core({
-        meta: {
-          foo: 'bar',
-        },
+      const core = new Core<{ foo: string; beep: string }, any>({
+        meta: { foo: 'bar', beep: '' },
       })
+
       expect(core.getState().meta).toMatchObject({
         foo: 'bar',
       })
@@ -1451,6 +1491,7 @@ describe('src/Core', () => {
           source: 'vi',
           name: 'foo1.png',
           type: 'image/png',
+          // @ts-ignore
           data: new File([sampleImage], { type: 'image/png' }),
         })
       } catch (err) {
@@ -1472,6 +1513,7 @@ describe('src/Core', () => {
           source: 'vi',
           name: 'foo1.png',
           type: 'image/png',
+          // @ts-ignore
           data: new File([sampleImage], { type: 'image/png' }),
         })
       }).not.toThrow()
@@ -1483,8 +1525,17 @@ describe('src/Core', () => {
   describe('meta data', () => {
     it('should set meta data by calling setMeta', () => {
       // use DeepFrozenStore in some tests to make sure we are not mutating things
-      const core = new Core({
+      const core = new Core<
+        {
+          foo: string
+          boo: string
+          foo2: string
+          bur: string
+        },
+        any
+      >({
         store: DeepFrozenStore(),
+        // @ts-ignore
         meta: { foo2: 'bar2' },
       })
       core.setMeta({ foo: 'bar', bur: 'mur' })
@@ -1504,7 +1555,7 @@ describe('src/Core', () => {
         source: 'vi',
         name: 'foo.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
 
       const fileId = Object.keys(core.getState().files)[0]
@@ -1528,9 +1579,10 @@ describe('src/Core', () => {
         name: 'foo.jpg',
         type: 'image/jpeg',
         meta: {
+          // @ts-ignore
           resize: 5000,
         },
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
       const fileId = Object.keys(core.getState().files)[0]
       expect(core.getFile(fileId).meta).toEqual({
@@ -1550,7 +1602,7 @@ describe('src/Core', () => {
         source: 'vi',
         name: 'foo.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
 
       const fileId = Object.keys(core.getState().files)[0]
@@ -1608,6 +1660,7 @@ describe('src/Core', () => {
         source: 'instagram',
         name: 'foo.jpg',
         type: 'image/jpeg',
+        // @ts-ignore
         data: {},
       })
 
@@ -1615,6 +1668,7 @@ describe('src/Core', () => {
 
       const uploadPromise = core.upload()
       await Promise.all([
+        // @ts-ignore deprecated
         new Promise((resolve) => core.once('upload-start', resolve)),
         // todo backward compat: remove in next major
         new Promise((resolve) => core.once('upload-started', resolve)),
@@ -1628,6 +1682,7 @@ describe('src/Core', () => {
         percentage: 0,
       })
 
+      // @ts-ignore
       proceedUpload()
       // wait for progress event
       await promise
@@ -1641,6 +1696,7 @@ describe('src/Core', () => {
 
       expect(core.getState().totalProgress).toBe(36)
 
+      // @ts-ignore
       finishUpload()
       // wait for success event
       await finishPromise
@@ -1671,6 +1727,7 @@ describe('src/Core', () => {
         source: 'instagram',
         name: 'foo.jpg',
         type: 'image/jpeg',
+        // @ts-ignore
         data: {},
       })
 
@@ -1685,6 +1742,7 @@ describe('src/Core', () => {
         source: 'instagram',
         name: 'bar.jpg',
         type: 'image/jpeg',
+        // @ts-ignore
         data: {},
       })
 
@@ -1706,20 +1764,22 @@ describe('src/Core', () => {
         source: 'vi',
         name: 'foo.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
       core.addFile({
         source: 'vi',
         name: 'foo2.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
 
       const [file1, file2] = core.getFiles()
       core.setFileState(file1.id, {
+        // @ts-ignore suddenly dates??
         progress: { ...file1.progress, uploadStarted: new Date() },
       })
       core.setFileState(file2.id, {
+        // @ts-ignore suddenly dates??
         progress: { ...file2.progress, uploadStarted: new Date() },
       })
 
@@ -1748,20 +1808,22 @@ describe('src/Core', () => {
         source: 'vi',
         name: 'foo.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
       core.addFile({
         source: 'vi',
         name: 'foo2.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
 
       const [file1, file2] = core.getFiles()
       core.setFileState(file1.id, {
+        // @ts-ignore suddenly dates??
         progress: { ...file1.progress, uploadStarted: new Date() },
       })
       core.setFileState(file2.id, {
+        // @ts-ignore suddenly dates??
         progress: { ...file2.progress, uploadStarted: new Date() },
       })
 
@@ -1818,14 +1880,14 @@ describe('src/Core', () => {
         source: 'vi',
         name: 'foo1.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
       try {
         core.addFile({
           source: 'vi',
           name: 'foo2.jpg',
           type: 'image/jpeg',
-          data: new File([sampleImage], { type: 'image/jpeg' }),
+          data: testImage,
         })
         throw new Error('should have thrown')
       } catch (err) {
@@ -1849,7 +1911,7 @@ describe('src/Core', () => {
           source: 'vi',
           name: 'foo1.jpg',
           type: 'image/jpeg',
-          data: new File([sampleImage], { type: 'image/jpeg' }),
+          data: testImage,
         })
         core.setFileState(fileId1, { isGhost: true })
 
@@ -1858,7 +1920,7 @@ describe('src/Core', () => {
           source: 'vi',
           name: 'foo2.jpg',
           type: 'image/jpeg',
-          data: new File([sampleImage], { type: 'image/jpeg' }),
+          data: testImage,
         })
       }).not.toThrowError()
     })
@@ -1877,7 +1939,7 @@ describe('src/Core', () => {
           source: 'vi',
           name: 'foo2.jpg',
           type: 'image/jpeg',
-          data: new File([sampleImage], { type: 'image/jpeg' }),
+          data: testImage,
         })
         throw new Error('should have thrown')
       } catch (err) {
@@ -1894,6 +1956,7 @@ describe('src/Core', () => {
       try {
         const core = new Core({
           restrictions: {
+            // @ts-ignore
             allowedFileTypes: 'image/gif',
           },
         })
@@ -1917,7 +1980,7 @@ describe('src/Core', () => {
           source: 'vi',
           name: 'foo2.png',
           type: '',
-          data: new File([sampleImage], { type: 'image/jpeg' }),
+          data: testImage,
         })
         throw new Error('should have thrown')
       } catch (err) {
@@ -1930,15 +1993,13 @@ describe('src/Core', () => {
       }
 
       expect(() =>
-        core
-          .addFile({
-            source: 'vi',
-            name: 'foo2.JPG',
-            type: '',
-            data: new File([sampleImage], { type: 'image/jpeg' }),
-          })
-          .not.toThrow(),
-      )
+        core.addFile({
+          source: 'vi',
+          name: 'foo2.JPG',
+          type: '',
+          data: testImage,
+        }),
+      ).not.toThrow()
     })
 
     it('should enforce the maxFileSize rule', () => {
@@ -1953,7 +2014,7 @@ describe('src/Core', () => {
           source: 'vi',
           name: 'foo.jpg',
           type: 'image/jpeg',
-          data: new File([sampleImage], { type: 'image/jpeg' }),
+          data: testImage,
         })
         throw new Error('should have thrown')
       } catch (err) {
@@ -1978,7 +2039,7 @@ describe('src/Core', () => {
           source: 'vi',
           name: 'foo.jpg',
           type: 'image/jpeg',
-          data: new File([sampleImage], { type: 'image/jpeg' }),
+          data: testImage,
         })
         throw new Error('should have thrown')
       } catch (err) {
@@ -2002,7 +2063,7 @@ describe('src/Core', () => {
         source: 'vi',
         name: 'foo.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
 
       expect(() => {
@@ -2010,7 +2071,7 @@ describe('src/Core', () => {
           source: 'vi',
           name: 'foo1.jpg',
           type: 'image/jpeg',
-          data: new File([sampleImage], { type: 'image/jpeg' }),
+          data: testImage,
         })
       }).toThrowError(
         new Error('foo1.jpg exceeds maximum allowed size of 33 KB'),
@@ -2035,20 +2096,22 @@ describe('src/Core', () => {
         name: 'foo1.jpg',
         extension: 'jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
         isFolder: false,
         mimeType: 'image/jpeg',
         modifiedDate: '2016-04-13T15:11:31.204Z',
         size: 270733,
       }
 
+      // @ts-ignore
       const validateRestrictions1 = core.validateRestrictions(newFile)
+      // @ts-ignore
       const validateRestrictions2 = core2.validateRestrictions(newFile)
 
-      expect(validateRestrictions1.message).toEqual(
+      expect(validateRestrictions1!.message).toEqual(
         'This file is smaller than the allowed size of 293 KB',
       )
-      expect(validateRestrictions2.message).toEqual(
+      expect(validateRestrictions2!.message).toEqual(
         'You can only upload: image/png',
       )
     })
@@ -2062,6 +2125,8 @@ describe('src/Core', () => {
       })
       const restrictionsViolatedEventMock = vi.fn()
       const file = {
+        source: 'vi',
+        type: 'image/jpeg',
         name: 'test.jpg',
         data: new Blob([new Uint8Array(2 * maxFileSize)]),
       }
@@ -2097,6 +2162,7 @@ describe('src/Core', () => {
       const core = new Core()
       core.setState({
         files: {
+          // @ts-ignore
           fileId: {
             id: 'fileId',
             name: 'filename',
@@ -2128,7 +2194,7 @@ describe('src/Core', () => {
   describe('updateOnlineStatus', () => {
     const RealNavigatorOnline = globalThis.window.navigator.onLine
 
-    function mockNavigatorOnline(status) {
+    function mockNavigatorOnline(status: boolean) {
       Object.defineProperty(globalThis.window.navigator, 'onLine', {
         value: status,
         writable: true,
@@ -2136,6 +2202,7 @@ describe('src/Core', () => {
     }
 
     afterEach(() => {
+      // @ts-ignore readonly but whatever
       globalThis.window.navigator.onLine = RealNavigatorOnline
     })
 
@@ -2144,8 +2211,11 @@ describe('src/Core', () => {
       const offlineEventMock = vi.fn()
       const backOnlineEventMock = vi.fn()
       const core = new Core()
+      // @ts-ignore untyped
       core.on('is-offline', offlineEventMock)
+      // @ts-ignore untyped
       core.on('is-online', onlineEventMock)
+      // @ts-ignore untyped
       core.on('back-online', backOnlineEventMock)
 
       mockNavigatorOnline(true)
@@ -2224,6 +2294,7 @@ describe('src/Core', () => {
       setTimeout(() => {
         expect(infoHiddenEvent.mock.calls.length).toEqual(1)
         expect(core.getState().info).toEqual([])
+        // @ts-ignore
         done()
       }, 110)
     })
@@ -2290,7 +2361,7 @@ describe('src/Core', () => {
         source: 'vi',
         name: 'foo.jpg',
         type: 'image/jpeg',
-        data: new File([sampleImage], { type: 'image/jpeg' }),
+        data: testImage,
       })
 
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -2299,7 +2370,7 @@ describe('src/Core', () => {
         Object.keys(core.getState().files),
       )
       const uploadId = Object.keys(core.getState().currentUploads)[0]
-      const currentUploadsState = {}
+      const currentUploadsState: State<any, any>['currentUploads'] = {}
       currentUploadsState[uploadId] = {
         fileIDs: Object.keys(core.getState().files),
         step: 0,
@@ -2359,8 +2430,11 @@ describe('src/Core', () => {
 
       // logger.debug should have been called 1 time above,
       // but we call log in Core’s constructor to output VERSION, hence +1 here
+      // @ts-ignore
       expect(core.opts.logger.debug.mock.calls.length).toBe(2)
+      // @ts-ignore
       expect(core.opts.logger.error.mock.calls.length).toBe(2)
+      // @ts-ignore
       expect(core.opts.logger.warn.mock.calls.length).toBe(1)
     })
 
@@ -2383,10 +2457,13 @@ describe('src/Core', () => {
 
       // logger.debug should have been called 1 time above,
       // but we call log in Core’s constructor to output VERSION, hence +1 here
+      // @ts-ignore
       expect(core.opts.logger.debug.mock.calls.length).toBe(2)
+      // @ts-ignore
       expect(core.opts.logger.error.mock.calls.length).toBe(2)
       // logger.warn should have been called 1 time above,
       // but we warn in Core when using both logger and debug: true, hence +1 here
+      // @ts-ignore
       expect(core.opts.logger.warn.mock.calls.length).toBe(2)
     })
 
@@ -2404,10 +2481,14 @@ describe('src/Core', () => {
 
       // console.debug debug should have been called 2 times above,
       // ibut we call log n Core’ constructor to output VERSION, hence +1 here
+      // @ts-ignore
       expect(console.debug.mock.calls.length).toBe(3)
+      // @ts-ignore
       expect(console.error.mock.calls.length).toBe(1)
 
+      // @ts-ignore
       console.debug.mockClear()
+      // @ts-ignore
       console.error.mockClear()
 
       const core2 = new Core({
@@ -2420,7 +2501,9 @@ describe('src/Core', () => {
 
       // console.debug debug should have been called 2 times here,
       // but we call log in Core constructor to output VERSION, hence +1 here
+      // @ts-ignore
       expect(console.debug.mock.calls.length).toBe(3)
+      // @ts-ignore
       expect(console.error.mock.calls.length).toBe(1)
     })
 
@@ -2434,7 +2517,9 @@ describe('src/Core', () => {
       core.log('beep boop')
       core.log('beep beep', 'error')
 
+      // @ts-ignore
       expect(console.debug.mock.calls.length).toBe(0)
+      // @ts-ignore
       expect(console.error.mock.calls.length).toBe(1)
     })
   })
