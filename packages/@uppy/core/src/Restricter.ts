@@ -1,5 +1,8 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 /* eslint-disable max-classes-per-file, class-methods-use-this */
+// @ts-ignore untyped
 import prettierBytes from '@transloadit/prettier-bytes'
+// @ts-ignore untyped
 import match from 'mime-match'
 import Translator from '@uppy/utils/lib/Translator'
 import type { Body, Meta, UppyFile } from '@uppy/utils/lib/UppyFile'
@@ -36,7 +39,7 @@ class RestrictionError<M extends Meta, B extends Body> extends Error {
     opts?: { isUserFacing?: boolean; file?: UppyFile<M, B> },
   ) {
     super(message)
-    this.isUserFacing = opts?.isUserFacing ?? true
+    this.isUserFacing = opts?.isUserFacing ?? false
     if (opts?.file) {
       this.file = opts.file // only some restriction errors are related to a particular file
     }
@@ -186,7 +189,7 @@ class Restricter<M extends Meta, B extends Body> {
       this.i18n('missingRequiredMetaFieldOnFile', { fileName: file.name }),
     )
     const { requiredMetaFields } = this.getOpts().restrictions
-    const missingFields = []
+    const missingFields: string[] = []
 
     for (const field of requiredMetaFields) {
       if (!Object.hasOwn(file.meta, field) || file.meta[field] === '') {

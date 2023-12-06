@@ -1,17 +1,18 @@
 import UIPlugin from '../UIPlugin.ts'
+import type Uppy from '../Uppy.ts'
 
 export default class InvalidPluginWithoutName extends UIPlugin<any, any, any> {
   public type: string
 
   public name: string
 
-  constructor(uppy, opts) {
+  constructor(uppy: Uppy<any, any>, opts: any) {
     super(uppy, opts)
     this.type = 'acquirer'
     this.name = this.constructor.name
   }
 
-  run(results) {
+  run(results: any) {
     this.uppy.log({
       class: this.constructor.name,
       method: 'run',

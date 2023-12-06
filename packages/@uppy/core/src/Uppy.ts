@@ -42,6 +42,11 @@ type UnknownPlugin<M extends Meta, B extends Body> = InstanceType<
   typeof BasePlugin<any, M, B> | typeof UIPlugin<any, M, B>
 >
 
+type MinimalRequiredUppyFile<M extends Meta, B extends Body> = Required<
+  Pick<UppyFile<M, B>, 'name' | 'data' | 'type' | 'source'>
+> &
+  Partial<Omit<UppyFile<M, B>, 'name' | 'data' | 'type' | 'source'>>
+
 interface UploadResult<M extends Meta, B extends Body> {
   successful?: UppyFile<M, B>[]
   failed?: UppyFile<M, B>[]
@@ -797,8 +802,8 @@ export class Uppy<M extends Meta, B extends Body> {
 
     // create a copy of the files object only once
     const nextFilesState = { ...existingFiles }
-    const validFilesToAdd = []
-    const errors = []
+    const validFilesToAdd: UppyFile<M, B>[] = []
+    const errors: RestrictionError<M, B>[] = []
 
     for (const fileToAdd of filesToAdd) {
       try {
@@ -890,11 +895,11 @@ export class Uppy<M extends Meta, B extends Body> {
    * try to guess file type in a clever way, check file against restrictions,
    * and start an upload if `autoProceed === true`.
    */
-  addFile(file: UppyFile<M, B>): UppyFile<M, B>['id'] {
-    this.#assertNewUploadAllowed(file)
+  addFile(file: MinimalRequiredUppyFile<M, B>): UppyFile<M, B>['id'] {
+    this.#assertNewUploadAllowed(file as UppyFile<M, B>)
 
     const { nextFilesState, validFilesToAdd, errors } =
-      this.#checkAndUpdateFileState([file])
+      this.#checkAndUpdateFileState([file as UppyFile<M, B>])
 
     const restrictionErrors = errors.filter((error) => error.isRestriction)
     this.#informAndEmit(restrictionErrors)
@@ -923,11 +928,11 @@ export class Uppy<M extends Meta, B extends Body> {
    * This is good for UI plugins, but not for programmatic use.
    * Programmatic users should usually still use `addFile()` on individual files.
    */
-  addFiles(fileDescriptors: UppyFile<M, B>[]): void {
+  addFiles(fileDescriptors: MinimalRequiredUppyFile<M, B>[]): void {
     this.#assertNewUploadAllowed()
 
     const { nextFilesState, validFilesToAdd, errors } =
-      this.#checkAndUpdateFileState(fileDescriptors)
+      this.#checkAndUpdateFileState(fileDescriptors as UppyFile<M, B>[])
 
     const restrictionErrors = errors.filter((error) => error.isRestriction)
     this.#informAndEmit(restrictionErrors)

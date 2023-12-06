@@ -5,6 +5,7 @@
     "noEmit": true
   },
   "include": ["./package.json", "./src/**/*.*"],
+  "exclude": ["./src/Uppy.test.ts"],
   "references": [
     {
       "path": "../store-default/tsconfig.build.json"

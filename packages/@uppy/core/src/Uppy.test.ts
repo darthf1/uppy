@@ -50,6 +50,7 @@ describe('src/Core', () => {
       const core = new Core()
       core.use(AcquirerPlugin1)
       expect(
+        // @ts-expect-error untyped
         Object.keys(core[Symbol.for('uppy test: getPlugins')]('acquirer'))
           .length,
       ).toEqual(1)
@@ -68,6 +69,7 @@ describe('src/Core', () => {
       const core = new Core()
 
       expect(() => {
+        // @ts-expect-error expected
         core.use(InvalidPlugin)
       }).toThrowErrorMatchingSnapshot()
     })
