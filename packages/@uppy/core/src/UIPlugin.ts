@@ -25,7 +25,6 @@ function debounce<T extends (...args: any[]) => any>(
         // recent state, if multiple calls happened since this task
         // was queued. So we use the `latestArgs`, which definitely
         // is the most recent call.
-        // @ts-expect-error latestArgs is iterable
         return fn(...latestArgs)
       })
     }

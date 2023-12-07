@@ -1127,6 +1127,7 @@ describe('src/Core', () => {
         fileIDs.forEach((fileID) => {
           const file = core.getFile(fileID)
           if (/bar/.test(file.name)) {
+            // @ts-ignore
             core.emit(
               'upload-error',
               file,
@@ -1607,6 +1608,7 @@ describe('src/Core', () => {
 
       const fileId = Object.keys(core.getState().files)[0]
       const file = core.getFile(fileId)
+      // @ts-ignore
       core.emit('upload-progress', file, {
         bytesUploaded: 12345,
         bytesTotal: 17175,
@@ -1619,6 +1621,7 @@ describe('src/Core', () => {
         uploadStarted: null,
       })
 
+      // @ts-ignore
       core.emit('upload-progress', file, {
         bytesUploaded: 17175,
         bytesTotal: 17175,
@@ -1646,13 +1649,16 @@ describe('src/Core', () => {
         finishUpload = resolve
       })
       core.addUploader(async ([id]) => {
+        // @ts-ignore deprecated
         core.emit('upload-start', [core.getFile(id)])
         await promise
+        // @ts-ignore deprecated
         core.emit('upload-progress', core.getFile(id), {
           bytesTotal: 3456,
           bytesUploaded: 1234,
         })
         await finishPromise
+        // @ts-ignore deprecated
         core.emit('upload-success', core.getFile(id), { uploadURL: 'lol' })
       })
 
@@ -1717,7 +1723,9 @@ describe('src/Core', () => {
       const core = new Core()
 
       core.once('file-added', (file) => {
+        // @ts-ignore deprecated
         core.emit('upload-start', [file])
+        // @ts-ignore
         core.emit('upload-progress', file, {
           bytesTotal: 3456,
           bytesUploaded: 1234,
@@ -1732,7 +1740,9 @@ describe('src/Core', () => {
       })
 
       core.once('file-added', (file) => {
+        // @ts-ignore deprecated
         core.emit('upload-start', [file])
+        // @ts-ignore
         core.emit('upload-progress', file, {
           bytesTotal: null,
           bytesUploaded: null,
@@ -1783,11 +1793,13 @@ describe('src/Core', () => {
         progress: { ...file2.progress, uploadStarted: new Date() },
       })
 
+      // @ts-ignore test does not care about missing properties
       core.emit('upload-progress', core.getFile(file1.id), {
         bytesUploaded: 12345,
         bytesTotal: 17175,
       })
 
+      // @ts-ignore test does not care about missing properties
       core.emit('upload-progress', core.getFile(file2.id), {
         bytesUploaded: 10201,
         bytesTotal: 17175,
@@ -1827,11 +1839,13 @@ describe('src/Core', () => {
         progress: { ...file2.progress, uploadStarted: new Date() },
       })
 
+      // @ts-ignore test does not care about missing properties
       core.emit('upload-progress', core.getFile(file1.id), {
         bytesUploaded: 12345,
         bytesTotal: 17175,
       })
 
+      // @ts-ignore test does not care about missing properties
       core.emit('upload-progress', core.getFile(file2.id), {
         bytesUploaded: 10201,
         bytesTotal: 17175,
@@ -2169,6 +2183,7 @@ describe('src/Core', () => {
           },
         },
       })
+      // @ts-ignore test does not care about missing properties
       core.emit(
         'upload-error',
         core.getFile('fileId'),
@@ -2185,7 +2200,9 @@ describe('src/Core', () => {
 
     it('should reset the error state when receiving the upload event', () => {
       const core = new Core()
+      // @ts-ignore test does not care about missing properties
       core.emit('error', { foo: 'bar' })
+      // @ts-ignore test does not care about missing properties
       core.emit('upload')
       expect(core.getState().error).toEqual(null)
     })

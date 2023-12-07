@@ -183,9 +183,9 @@ class Restricter<M extends Meta, B extends Body> {
 
   getMissingRequiredMetaFields(file: UppyFile<M, B>): {
     missingFields: string[]
-    error: RestrictionError
+    error: RestrictionError<M, B>
   } {
-    const error = new RestrictionError(
+    const error = new RestrictionError<M, B>(
       this.i18n('missingRequiredMetaFieldOnFile', { fileName: file.name }),
     )
     const { requiredMetaFields } = this.getOpts().restrictions

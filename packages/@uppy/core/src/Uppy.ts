@@ -36,7 +36,7 @@ import type { PluginOpts } from './BasePlugin.ts'
 
 type Processor = (fileIDs: string[], uploadID: string) => Promise<void> | void
 
-type FileRemoveReason = 'removed-by-user' | 'cancel-all'
+type FileRemoveReason = 'user' | 'cancel-all'
 
 type LogLevel = 'info' | 'warning' | 'error' | 'success'
 
@@ -50,6 +50,8 @@ type MinimalRequiredUppyFile<M extends Meta, B extends Body> = Required<
 > &
   Partial<
     Omit<UppyFile<M, B>, 'name' | 'data' | 'type' | 'source' | 'meta'>
+    // Meta is always present in UppyFile because of internal metadata, but when adding a new file
+    // it is not required.
   > & { meta?: M }
 
 interface UploadResult<M extends Meta, B extends Body> {
@@ -147,7 +149,7 @@ type FilesAddedCallback<M extends Meta, B extends Body> = (
 ) => void
 type FileRemovedCallback<M extends Meta, B extends Body> = (
   file: UppyFile<M, B>,
-  reason: FileRemoveReason,
+  reason?: FileRemoveReason,
 ) => void
 type UploadCallback = (data: { id: string; fileIDs: string[] }) => void
 type ProgressCallback = (progress: number) => void
@@ -159,8 +161,9 @@ type PostProcessProgressCallback<M extends Meta, B extends Body> = (
   file: UppyFile<M, B> | undefined,
   progress: NonNullable<FileProgress['postprocess']>,
 ) => void
-type PreProcessCompleteCallback<M extends Meta, B extends Body> = (
+type ProcessCompleteCallback<M extends Meta, B extends Body> = (
   file: UppyFile<M, B> | undefined,
+  progress?: NonNullable<FileProgress['preprocess']>,
 ) => void
 type UploadPauseCallback<M extends Meta, B extends Body> = (
   fileID: UppyFile<M, B>['id'] | undefined,
@@ -182,8 +185,8 @@ type UploadCompleteCallback<M extends Meta, B extends Body> = (
 ) => void
 type ErrorCallback<M extends Meta, B extends Body> = (
   error: { message?: string; details?: string },
-  file: UppyFile<M, B> | undefined,
-  response: UppyFile<M, B>['response'] | undefined,
+  file?: UppyFile<M, B>,
+  response?: UppyFile<M, B>['response'],
 ) => void
 type UploadErrorCallback<M extends Meta, B extends Body> = (
   file: UppyFile<M, B> | undefined,
@@ -195,8 +198,6 @@ type UploadStalledCallback<M extends Meta, B extends Body> = (
   files: UppyFile<M, B>[],
 ) => void
 type UploadRetryCallback = (fileID: string) => void
-type PauseAllCallback = (fileIDs: string[]) => void
-type ResumeAllCallback = (fileIDs: string[]) => void
 type RetryAllCallback = (fileIDs: string[]) => void
 type RestrictionFailedCallback<M extends Meta, B extends Body> = (
   file: UppyFile<M, B> | undefined,
@@ -205,12 +206,14 @@ type RestrictionFailedCallback<M extends Meta, B extends Body> = (
 type StateUpdateCallback<M extends Meta, B extends Body> = (
   prevState: State<M, B>,
   nextState: State<M, B>,
+  patch?: Partial<State<M, B>>,
 ) => void
+type CancelAllCallback = (reason: { reason?: FileRemoveReason }) => void
+type PluginCallback = (plugin: UnknownPlugin<any, any>) => void
 
-interface UppyEventMap<M extends Meta, B extends Body> {
-  'cancel-all': GenericEventCallback
-  'state-update': StateUpdateCallback<M, B>
-  restored: GenericEventCallback
+export interface UppyEventMap<M extends Meta, B extends Body> {
+  'back-online': GenericEventCallback
+  'cancel-all': CancelAllCallback
   complete: UploadCompleteCallback<M, B>
   error: ErrorCallback<M, B>
   'file-added': FileAddedCallback<M, B>
@@ -218,24 +221,30 @@ interface UppyEventMap<M extends Meta, B extends Body> {
   'files-added': FilesAddedCallback<M, B>
   'info-hidden': GenericEventCallback
   'info-visible': GenericEventCallback
-  'pause-all': PauseAllCallback
-  'preprocess-progress': PreProcessProgressCallback<M, B>
-  'preprocess-complete': PreProcessCompleteCallback<M, B>
-  progress: ProgressCallback
+  'is-offline': GenericEventCallback
+  'is-online': GenericEventCallback
+  'pause-all': GenericEventCallback
+  'plugin-added': PluginCallback
+  'plugin-remove': PluginCallback
+  'postprocess-complete': ProcessCompleteCallback<M, B>
   'postprocess-progress': PostProcessProgressCallback<M, B>
-  'postprocess-complete': PreProcessCompleteCallback<M, B>
+  'preprocess-complete': ProcessCompleteCallback<M, B>
+  'preprocess-progress': PreProcessProgressCallback<M, B>
+  progress: ProgressCallback
   'reset-progress': GenericEventCallback
-  'resume-all': ResumeAllCallback
+  restored: GenericEventCallback
   'restriction-failed': RestrictionFailedCallback<M, B>
+  'resume-all': GenericEventCallback
   'retry-all': RetryAllCallback
+  'state-update': StateUpdateCallback<M, B>
+  upload: UploadCallback
   'upload-error': UploadErrorCallback<M, B>
   'upload-pause': UploadPauseCallback<M, B>
-  'upload-started': UploadStartedCallback<M, B>
   'upload-progress': UploadProgressCallback<M, B>
-  'upload-stalled': UploadStalledCallback<M, B>
   'upload-retry': UploadRetryCallback
+  'upload-stalled': UploadStalledCallback<M, B>
+  'upload-started': UploadStartedCallback<M, B>
   'upload-success': UploadSuccessCallback<M, B>
-  upload: UploadCallback
 }
 
 const defaultUploadState = {
@@ -676,9 +685,13 @@ export class Uppy<M extends Meta, B extends Body> {
   ): void {
     for (const error of errors) {
       if (error.isRestriction) {
-        this.emit('restriction-failed', error.file, error)
+        this.emit(
+          'restriction-failed',
+          error.file,
+          error as RestrictionError<M, B>,
+        )
       } else {
-        this.emit('error', error)
+        this.emit('error', error, error.file)
       }
       this.log(error, 'warning')
     }
@@ -1026,7 +1039,7 @@ export class Uppy<M extends Meta, B extends Body> {
     }
   }
 
-  removeFiles(fileIDs: string[], reason?: string): void {
+  removeFiles(fileIDs: string[], reason?: FileRemoveReason): void {
     const { files, currentUploads } = this.getState()
     const updatedFiles = { ...files }
     const updatedUploads = { ...currentUploads }
@@ -1096,7 +1109,7 @@ export class Uppy<M extends Meta, B extends Body> {
     }
   }
 
-  removeFile(fileID: string, reason?: string): void {
+  removeFile(fileID: string, reason?: FileRemoveReason): void {
     this.removeFiles([fileID], reason)
   }
 
@@ -1194,7 +1207,7 @@ export class Uppy<M extends Meta, B extends Body> {
     return this.#runUpload(uploadID)
   }
 
-  cancelAll({ reason = 'user' } = {}): void {
+  cancelAll({ reason = 'user' }: { reason?: FileRemoveReason } = {}): void {
     this.emit('cancel-all', { reason })
 
     // Only remove existing uploads if user is canceling
@@ -1708,7 +1721,7 @@ export class Uppy<M extends Meta, B extends Body> {
   /**
    * Uninstall all plugins and close down this Uppy instance.
    */
-  close({ reason }: { reason?: string } | undefined = {}): void {
+  close({ reason }: { reason?: FileRemoveReason } | undefined = {}): void {
     this.log(
       `Closing Uppy instance ${this.opts.id}: removing all files and uninstalling plugins`,
     )
