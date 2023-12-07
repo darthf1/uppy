@@ -10,7 +10,10 @@ import getFileType from '@uppy/utils/lib/getFileType'
 import getFileNameAndExtension from '@uppy/utils/lib/getFileNameAndExtension'
 import { getSafeFileId } from '@uppy/utils/lib/generateFileID'
 import type { UppyFile, Meta, Body } from '@uppy/utils/lib/UppyFile'
-import type { FileProgress } from '@uppy/utils/lib/FileProgress'
+import type {
+  FileProgressNotStarted,
+  FileProgressStarted,
+} from '@uppy/utils/lib/FileProgress'
 import type {
   Locale,
   I18n,
@@ -155,15 +158,15 @@ type UploadCallback = (data: { id: string; fileIDs: string[] }) => void
 type ProgressCallback = (progress: number) => void
 type PreProcessProgressCallback<M extends Meta, B extends Body> = (
   file: UppyFile<M, B> | undefined,
-  progress: NonNullable<FileProgress['preprocess']>,
+  progress: NonNullable<FileProgressStarted['preprocess']>,
 ) => void
 type PostProcessProgressCallback<M extends Meta, B extends Body> = (
   file: UppyFile<M, B> | undefined,
-  progress: NonNullable<FileProgress['postprocess']>,
+  progress: NonNullable<FileProgressStarted['postprocess']>,
 ) => void
 type ProcessCompleteCallback<M extends Meta, B extends Body> = (
   file: UppyFile<M, B> | undefined,
-  progress?: NonNullable<FileProgress['preprocess']>,
+  progress?: NonNullable<FileProgressStarted['preprocess']>,
 ) => void
 type UploadPauseCallback<M extends Meta, B extends Body> = (
   fileID: UppyFile<M, B>['id'] | undefined,
@@ -174,7 +177,7 @@ type UploadStartedCallback<M extends Meta, B extends Body> = (
 ) => void
 type UploadProgressCallback<M extends Meta, B extends Body> = (
   file: UppyFile<M, B> | undefined,
-  progress: FileProgress,
+  progress: FileProgressStarted,
 ) => void
 type UploadSuccessCallback<M extends Meta, B extends Body> = (
   file: UppyFile<M, B> | undefined,
@@ -501,9 +504,9 @@ export class Uppy<M extends Meta, B extends Body> {
 
   // todo next major: rename to something better? (it doesn't just reset progress)
   resetProgress(): void {
-    const defaultProgress = {
+    const defaultProgress: Omit<FileProgressNotStarted, 'bytesTotal'> = {
       percentage: 0,
-      bytesUploaded: 0,
+      bytesUploaded: false,
       uploadComplete: false,
       uploadStarted: null,
     }
@@ -814,11 +817,11 @@ export class Uppy<M extends Meta, B extends Body> {
       data: file.data,
       progress: {
         percentage: 0,
-        bytesUploaded: 0,
+        bytesUploaded: false,
         bytesTotal: size,
         uploadComplete: false,
         uploadStarted: null,
-      },
+      } as FileProgressNotStarted,
       size,
       isGhost: false,
       isRemote: file.isRemote || false,
@@ -1442,7 +1445,7 @@ export class Uppy<M extends Meta, B extends Body> {
               percentage: 0,
               bytesUploaded: 0,
               bytesTotal: file.size,
-            },
+            } as FileProgressStarted,
           },
         ]),
       )
@@ -1482,7 +1485,7 @@ export class Uppy<M extends Meta, B extends Body> {
           uploadComplete: true,
           percentage: 100,
           bytesUploaded: currentProgress.bytesTotal,
-        },
+        } as FileProgressStarted,
         response: uploadResp,
         uploadURL: uploadResp.uploadURL,
         isPaused: false,

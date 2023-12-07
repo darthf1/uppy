@@ -1742,9 +1742,10 @@ describe('src/Core', () => {
       core.once('file-added', (file) => {
         // @ts-ignore deprecated
         core.emit('upload-start', [file])
-        // @ts-ignore
         core.emit('upload-progress', file, {
+          // @ts-ignore
           bytesTotal: null,
+          // @ts-ignore
           bytesUploaded: null,
         })
       })
