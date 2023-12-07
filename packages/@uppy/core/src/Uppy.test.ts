@@ -25,7 +25,7 @@ const sampleImage = fs.readFileSync(
   path.join(__dirname, '../../../../e2e/cypress/fixtures/images/image.jpg'),
 )
 
-// @ts-ignore type object can be second argument
+// @ts-expect-error type object can be second argument
 const testImage = new File([sampleImage], { type: 'image/jpeg' })
 
 describe('src/Core', () => {

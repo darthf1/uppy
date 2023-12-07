@@ -366,7 +366,10 @@ export class Uppy<M extends Meta, B extends Body> {
     this.#addListeners()
   }
 
-  emit(event: string, ...args: any[]): void {
+  emit<T extends keyof UppyEventMap<M, B>>(
+    event: T,
+    ...args: Parameters<UppyEventMap<M, B>[T]>
+  ): void {
     this.#emitter.emit(event, ...args)
   }
 
@@ -467,7 +470,7 @@ export class Uppy<M extends Meta, B extends Body> {
       ...(newOpts as UppyOptions<M, B>),
       restrictions: {
         ...this.opts.restrictions,
-        ...(newOpts && (newOpts.restrictions as Restrictions)),
+        ...(newOpts?.restrictions as Restrictions),
       },
     }
 
@@ -1569,10 +1572,7 @@ export class Uppy<M extends Meta, B extends Body> {
   }
 
   updateOnlineStatus(): void {
-    const online =
-      typeof window.navigator.onLine !== 'undefined'
-        ? window.navigator.onLine
-        : true
+    const online = window.navigator.onLine ?? true
     if (!online) {
       this.emit('is-offline')
       this.info(this.i18n('noInternetConnection'), 'error', 0)

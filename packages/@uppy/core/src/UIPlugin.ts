@@ -11,12 +11,12 @@ import type { PluginOpts } from './BasePlugin.ts'
 /**
  * Defer a frequent call to the microtask queue.
  */
-function debounce(fn: { (...args: any[]): any }): {
-  (...args: any[]): Promise<void>
-} {
-  let calling: Promise<void> | null = null
-  let latestArgs: any[] | null = null
-  return (...args: any[]) => {
+function debounce<T extends (...args: any[]) => any>(
+  fn: T,
+): (...args: Parameters<T>) => Promise<ReturnType<T>> {
+  let calling: Promise<ReturnType<T>> | null = null
+  let latestArgs: Parameters<T>
+  return (...args) => {
     latestArgs = args
     if (!calling) {
       calling = Promise.resolve().then(() => {
@@ -162,8 +162,8 @@ class UIPlugin<
    * so this.el and this.parent might not be available in `install`.
    * This is the case with @uppy/react plugins, for example.
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   render(state: Record<string, unknown>): ComponentChild {
-    // eslint-disable-line @typescript-eslint/no-unused-vars
     throw new Error(
       'Extend the render method to add your plugin to a DOM element',
     )

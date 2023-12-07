@@ -183,7 +183,7 @@ class Restricter<M extends Meta, B extends Body> {
 
   getMissingRequiredMetaFields(file: UppyFile<M, B>): {
     missingFields: string[]
-    error: InstanceType<typeof RestrictionError>
+    error: RestrictionError
   } {
     const error = new RestrictionError(
       this.i18n('missingRequiredMetaFieldOnFile', { fileName: file.name }),
