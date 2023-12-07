@@ -14,7 +14,7 @@ export default function supportsUploadProgress(userAgent?: string): boolean {
   if (!m) return true
 
   const edgeVersion = m[1]
-  const version = edgeVersion.split('.')
+  const version = edgeVersion.split('.', 2)
   const major = parseInt(version[0], 10)
   const minor = parseInt(version[1], 10)
 

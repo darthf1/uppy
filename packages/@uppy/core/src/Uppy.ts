@@ -484,7 +484,7 @@ export class Uppy<M extends Meta, B extends Body> {
     }
 
     if (newOpts.meta) {
-      this.setMeta(newOpts.meta as M)
+      this.setMeta(newOpts.meta)
     }
 
     this.i18nInit()

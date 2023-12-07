@@ -105,7 +105,7 @@ const defaultOnMissingKey = (key: string): void => {
  * Usage example: `translator.translate('files_chosen', {smart_count: 3})`
  */
 export default class Translator {
-  locale: Locale
+  readonly locale: Locale
 
   constructor(
     locales: Locale | Locale[],
@@ -138,11 +138,10 @@ export default class Translator {
     }
 
     const prevLocale = this.locale
-    this.locale = {
-      ...prevLocale,
+    Object.assign(this.locale, {
       strings: { ...prevLocale.strings, ...locale.strings },
-    } as any
-    this.locale.pluralize = locale.pluralize || prevLocale.pluralize
+      pluralize: locale.pluralize || prevLocale.pluralize,
+    })
   }
 
   /**
