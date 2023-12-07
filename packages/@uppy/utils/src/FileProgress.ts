@@ -16,6 +16,6 @@ export type FileProgressStarted = FileProgressBase & {
 }
 export type FileProgressNotStarted = FileProgressBase & {
   uploadStarted: null
-  bytesUploaded: false
+  bytesUploaded: false | 0
 }
 export type FileProgress = FileProgressStarted | FileProgressNotStarted

@@ -506,7 +506,7 @@ export class Uppy<M extends Meta, B extends Body> {
   resetProgress(): void {
     const defaultProgress: Omit<FileProgressNotStarted, 'bytesTotal'> = {
       percentage: 0,
-      bytesUploaded: false,
+      bytesUploaded: 0,
       uploadComplete: false,
       uploadStarted: null,
     }
@@ -817,7 +817,7 @@ export class Uppy<M extends Meta, B extends Body> {
       data: file.data,
       progress: {
         percentage: 0,
-        bytesUploaded: false,
+        bytesUploaded: 0,
         bytesTotal: size,
         uploadComplete: false,
         uploadStarted: null,
