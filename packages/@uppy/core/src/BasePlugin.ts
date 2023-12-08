@@ -69,9 +69,12 @@ export default class BasePlugin<
     this.i18nInit()
   }
 
-  i18nInit () {
-    const onMissingKey = (key) => this.uppy.log(`Missing i18n string: ${key}`, 'error')
-    const translator = new Translator([this.defaultLocale, this.uppy.locale, this.opts.locale], { onMissingKey })
+  i18nInit(): void {
+    const translator = new Translator([
+      this.defaultLocale,
+      this.uppy.locale,
+      this.opts.locale,
+    ])
     this.i18n = translator.translate.bind(translator)
     this.i18nArray = translator.translateArray.bind(translator)
     this.setPluginState(undefined) // so that UI re-renders and we see the updated locale

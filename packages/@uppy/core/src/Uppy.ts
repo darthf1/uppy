@@ -2,6 +2,8 @@
 /* global AggregateError */
 
 import Translator from '@uppy/utils/lib/Translator'
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore untyped
 import ee from 'namespace-emitter'
 import { nanoid } from 'nanoid/non-secure'
 import throttle from 'lodash/throttle.js'
@@ -372,6 +374,8 @@ export class Uppy<M extends Meta, B extends Body> {
 
     // Exposing uppy object on window for debugging and testing
     if (this.opts.debug && typeof window !== 'undefined') {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore Mutating the global object for debug purposes
       window[this.opts.id] = this
     }
 
@@ -468,9 +472,12 @@ export class Uppy<M extends Meta, B extends Body> {
     this.patchFilesState({ [fileID]: state })
   }
 
-  i18nInit () {
-    const onMissingKey = (key) => this.log(`Missing i18n string: ${key}`, 'error')
-    const translator = new Translator([this.defaultLocale, this.opts.locale], { onMissingKey })
+  i18nInit(): void {
+    const onMissingKey = (key: string): void =>
+      this.log(`Missing i18n string: ${key}`, 'error')
+    const translator = new Translator([this.defaultLocale, this.opts.locale], {
+      onMissingKey,
+    })
     this.i18n = translator.translate.bind(translator)
     this.i18nArray = translator.translateArray.bind(translator)
     this.locale = translator.locale
@@ -862,11 +869,11 @@ export class Uppy<M extends Meta, B extends Body> {
 
         // If a file has been recovered (Golden Retriever), but we were unable to recover its data (probably too large),
         // users are asked to re-select these half-recovered files and then this method will be called again.
-        // In order to keep the progress, meta and everthing else, we keep the existing file,
+        // In order to keep the progress, meta and everything else, we keep the existing file,
         // but we replace `data`, and we remove `isGhost`, because the file is no longer a ghost now
         const isGhost = existingFiles[newFile.id]?.isGhost
         if (isGhost) {
-          const { isGhost: _, ...existingFileState } = existingFiles[newFile.id]
+          const existingFileState = existingFiles[newFile.id]
           newFile = {
             ...existingFileState,
             isGhost: false,
@@ -1392,7 +1399,7 @@ export class Uppy<M extends Meta, B extends Body> {
       if (typeof error === 'object' && error.message) {
         this.log(error.message, 'error')
         const newError = new Error(
-          this.i18n('failedToUpload', { file: file?.name }),
+          this.i18n('failedToUpload', { file: file?.name ?? '' }),
         ) as any // we may want a new custom error here
         newError.isUserFacing = true // todo maybe don't do this with all errors?
         newError.details = error.message
@@ -1854,7 +1861,7 @@ export class Uppy<M extends Meta, B extends Body> {
     return uploadID
   }
 
-  private [Symbol.for('uppy test: createUpload')](...args): string {
+  private [Symbol.for('uppy test: createUpload')](...args: any[]): string {
     // @ts-expect-error https://github.com/microsoft/TypeScript/issues/47595
     return this.#createUpload(...args)
   }
