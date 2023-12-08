@@ -108,7 +108,7 @@ export default class Translator {
   readonly locale: Locale
 
   constructor(
-    locales: Locale | Locale[],
+    locales: Locale | Array<OptionalPluralizeLocale | undefined>,
     { onMissingKey = defaultOnMissingKey } = {},
   ) {
     this.locale = {
@@ -132,7 +132,7 @@ export default class Translator {
 
   #onMissingKey
 
-  #apply(locale?: Locale): void {
+  #apply(locale?: OptionalPluralizeLocale): void {
     if (!locale?.strings) {
       return
     }
